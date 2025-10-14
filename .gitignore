@@ -1,0 +1,43 @@
+# Build outputs
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Docker
+.dockerignore
+
+# Kubernetes secrets
+k8s/secrets/
+
+# Local environment
+.env
+.env.local
+
+# Prompts (keep local)
+.prompts/

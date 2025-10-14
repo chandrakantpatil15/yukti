@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Yukti Metrics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        :root {
+            --banana-green: #4a7c59;
+            --banana-yellow: #f1c40f;
+            --banana-ripe: #f39c12;
+            --dark-night: #1a1a1a;
+            --day-white: #ffffff;
+            --gradient-banana: linear-gradient(135deg, var(--banana-green) 0%, var(--banana-yellow) 50%, var(--banana-ripe) 100%);
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: var(--dark-night); color: var(--day-white); }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #2d2d2d 0%, #1f1f1f 100%); border-radius: 12px; border: 2px solid var(--banana-yellow); box-shadow: 0 0 20px rgba(241, 196, 15, 0.3); }
+        .header h1 { background: var(--gradient-banana); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .time-selector { display: flex; gap: 8px; }
+        .time-btn { padding: 10px 16px; background: linear-gradient(135deg, var(--banana-green) 0%, #3a5f47 100%); border: 1px solid var(--banana-green); color: var(--day-white); cursor: pointer; border-radius: 6px; transition: all 0.3s ease; font-size: 14px; font-weight: 500; }
+        .time-btn:hover { background: linear-gradient(135deg, var(--banana-yellow) 0%, var(--banana-ripe) 100%); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(241, 196, 15, 0.4); }
+        .time-btn.active { background: var(--gradient-banana); border-color: var(--banana-ripe); box-shadow: 0 0 15px rgba(241, 196, 15, 0.5); }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
+        .metric-card { background: linear-gradient(135deg, #2d2d2d 0%, #1f1f1f 100%); padding: 24px; border-radius: 12px; border: 1px solid var(--banana-green); box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 10px rgba(74, 124, 89, 0.2); transition: all 0.3s ease; }
+        .metric-card:hover { border-color: var(--banana-yellow); box-shadow: 0 8px 25px rgba(0,0,0,0.5), 0 0 20px rgba(241, 196, 15, 0.3); transform: translateY(-2px); }
+        .metric-title { font-size: 18px; margin-bottom: 20px; background: var(--gradient-banana); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600; display: flex; align-items: center; }
+        .chart-container { position: relative; height: 320px; }
+        .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; animation: pulse 2s infinite; box-shadow: 0 0 8px currentColor; }
+        .status-good { background: var(--banana-green); }
+        .status-warning { background: var(--banana-yellow); }
+        .status-critical { background: var(--banana-ripe); }
+        .connection-status { font-size: 12px; color: var(--banana-yellow); margin-left: auto; font-weight: 500; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 14px; }
+        .stat-item { background: linear-gradient(135deg, var(--dark-night) 0%, #2a2a2a 100%); padding: 12px; border-radius: 6px; border: 1px solid var(--banana-green); transition: all 0.3s ease; }
+        .stat-item:hover { border-color: var(--banana-yellow); box-shadow: 0 0 10px rgba(241, 196, 15, 0.2); }
+        .stat-value { font-size: 18px; font-weight: bold; background: var(--gradient-banana); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.1); } }
+        .loading { text-align: center; color: var(--banana-yellow); padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Yukti Enterprise Dashboard</h1>
+        <div class="connection-status" id="connectionStatus">🟢 Connected</div>
+        <div class="time-selector">
+            <button class="time-btn" onclick="setTimeRange(60)">1m</button>
+            <button class="time-btn" onclick="setTimeRange(300)">5m</button>
+            <button class="time-btn active" onclick="setTimeRange(900)">15m</button>
+            <button class="time-btn" onclick="setTimeRange(3600)">1h</button>
+            <button class="time-btn" onclick="setTimeRange(21600)">6h</button>
+            <button class="time-btn" onclick="setTimeRange(86400)">1d</button>
+        </div>
+    </div>
+
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-title">
+                <span id="jvm-status" class="status-indicator status-good"></span>
+                JVM Memory Usage
+            </div>
+            <div class="chart-container">
+                <canvas id="memoryChart"></canvas>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-title">
+                <span id="cpu-status" class="status-indicator status-good"></span>
+                CPU Performance
+            </div>
+            <div class="chart-container">
+                <canvas id="cpuChart"></canvas>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-title">
+                <span id="http-status" class="status-indicator status-good"></span>
+                HTTP Traffic
+            </div>
+            <div class="chart-container">
+                <canvas id="httpChart"></canvas>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-title">📊 System Overview</div>
+            <div class="stats-grid" id="systemStats">
+                <div class="loading">Loading metrics...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTimeRange = 900;
+        let charts = {};
+        let updateInterval;
+        
+        function initCharts() {
+            const chartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        x: { 
+                            type: 'time',
+                            time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
+                            grid: { color: 'rgba(74,124,89,0.3)' },
+                            ticks: { color: '#f1c40f' }
+                        },
+                        y: { 
+                            grid: { color: 'rgba(74,124,89,0.3)' },
+                            ticks: { color: '#f1c40f' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#ffffff', usePointStyle: true } }
+                    },
+                    elements: {
+                        point: { radius: 3, hoverRadius: 6 },
+                        line: { tension: 0.4 }
+                    }
+                }
+            };
+
+            charts.memory = new Chart(document.getElementById('memoryChart'), {
+                ...chartConfig,
+                data: {
+                    datasets: [
+                        { label: 'Heap Used (MB)', borderColor: '#f1c40f', backgroundColor: 'rgba(241,196,15,0.2)', data: [], fill: true },
+                        { label: 'Non-Heap Used (MB)', borderColor: '#4a7c59', backgroundColor: 'rgba(74,124,89,0.2)', data: [], fill: true }
+                    ]
+                }
+            });
+
+            charts.cpu = new Chart(document.getElementById('cpuChart'), {
+                ...chartConfig,
+                data: {
+                    datasets: [
+                        { label: 'CPU Usage (%)', borderColor: '#f39c12', backgroundColor: 'rgba(243,156,18,0.2)', data: [], fill: true }
+                    ]
+                },
+                options: {
+                    ...chartConfig.options,
+                    scales: { ...chartConfig.options.scales, y: { ...chartConfig.options.scales.y, max: 100 } }
+                }
+            });
+
+            charts.http = new Chart(document.getElementById('httpChart'), {
+                ...chartConfig,
+                data: {
+                    datasets: [
+                        { label: 'Total Requests', borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.2)', data: [], fill: true }
+                    ]
+                }
+            });
+        }
+
+        function updateCharts(data) {
+            const timestamp = new Date(data.timestamp);
+            
+            charts.memory.data.datasets[0].data.push({x: timestamp, y: data.jvm.heapUsed});
+            charts.memory.data.datasets[1].data.push({x: timestamp, y: data.jvm.nonHeapUsed});
+            
+            charts.cpu.data.datasets[0].data.push({x: timestamp, y: data.system.cpuUsage});
+            
+            charts.http.data.datasets[0].data.push({x: timestamp, y: data.http.totalRequests});
+            
+            // Keep only data within time range
+            const cutoffTime = new Date(Date.now() - currentTimeRange * 1000);
+            Object.values(charts).forEach(chart => {
+                chart.data.datasets.forEach(dataset => {
+                    dataset.data = dataset.data.filter(point => point.x > cutoffTime);
+                });
+                chart.update('none');
+            });
+            
+            updateSystemStats(data);
+            updateStatusIndicators(data);
+        }
+        
+        function updateSystemStats(data) {
+            const stats = document.getElementById('systemStats');
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${data.jvm.heapUsed}MB</div>
+                    <div>Heap Memory</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${data.system.cpuUsage.toFixed(1)}%</div>
+                    <div>CPU Usage</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${data.http.totalRequests}</div>
+                    <div>Total Requests</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${data.jvm.threads}</div>
+                    <div>Active Threads</div>
+                </div>
+            `;
+        }
+        
+        function updateStatusIndicators(data) {
+            const jvmStatus = document.getElementById('jvm-status');
+            const cpuStatus = document.getElementById('cpu-status');
+            const httpStatus = document.getElementById('http-status');
+            
+            // JVM Memory status
+            const memoryUsage = (data.jvm.heapUsed / data.jvm.heapMax) * 100;
+            jvmStatus.className = `status-indicator ${
+                memoryUsage > 80 ? 'status-critical' : 
+                memoryUsage > 60 ? 'status-warning' : 'status-good'
+            }`;
+            
+            // CPU status
+            cpuStatus.className = `status-indicator ${
+                data.system.cpuUsage > 80 ? 'status-critical' : 
+                data.system.cpuUsage > 60 ? 'status-warning' : 'status-good'
+            }`;
+            
+            // HTTP status (based on request rate)
+            httpStatus.className = 'status-indicator status-good';
+        }
+        
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/metrics/current');
+                if (!response.ok) throw new Error('Failed to fetch metrics');
+                
+                const data = await response.json();
+                updateCharts(data);
+                
+                document.getElementById('connectionStatus').innerHTML = '🟢 Connected';
+            } catch (error) {
+                console.error('Error fetching metrics:', error);
+                document.getElementById('connectionStatus').innerHTML = '🔴 Disconnected';
+            }
+        }
+        
+        function setTimeRange(seconds) {
+            currentTimeRange = seconds;
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Clear existing data and fetch new data
+            Object.values(charts).forEach(chart => {
+                chart.data.datasets.forEach(dataset => {
+                    dataset.data = [];
+                });
+                chart.update();
+            });
+        }
+        
+        function startUpdates() {
+            fetchMetrics(); // Initial fetch
+            updateInterval = setInterval(fetchMetrics, 5000); // Update every 5 seconds
+        }
+        
+        function stopUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        }
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            startUpdates();
+        });
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopUpdates);
+    </script>
+</body>
+</html>

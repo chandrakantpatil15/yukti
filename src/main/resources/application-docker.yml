@@ -1,0 +1,41 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: cloud-cost-optimizer
+  threads:
+    virtual:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: 10s
+    enable:
+      jvm: true
+      system: true
+      process: true
+      http: true
+      tomcat: true
+    tags:
+      application: ${spring.application.name}
+      environment: docker
+
+logging:
+  level:
+    com.cloudcostoptimizer: INFO
+    reactor.netty: WARN

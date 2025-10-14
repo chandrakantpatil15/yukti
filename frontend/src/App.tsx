@@ -1,0 +1,22 @@
+import React from 'react';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { Dashboard } from './components/Dashboard';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Dashboard />
+    </QueryClientProvider>
+  );
+}
+
+export default App;
