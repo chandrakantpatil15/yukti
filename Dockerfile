@@ -1,24 +1,21 @@
-# Multi-stage build with Maven cache
-FROM alpine:3.18 as builder
+# Build stage
+FROM golang:1.21-alpine AS builder
+
 WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
 
-# Install OpenJDK 17 and Maven
-RUN apk add --no-cache openjdk17 maven
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o yukti cmd/main.go
 
-# Copy pom.xml first for dependency caching
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
+# Runtime stage
+FROM alpine:latest
 
-# Copy source and build
-COPY src ./src
-RUN mvn clean package -DskipTests
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
 
-FROM alpine:3.18
-WORKDIR /app
+COPY --from=builder /app/yukti .
 
-# Install OpenJDK 17 JRE
-RUN apk add --no-cache openjdk17-jre
+EXPOSE 8080
 
-COPY --from=builder /app/target/*.jar app.jar
-EXPOSE 8090
-ENTRYPOINT ["java", "-jar", "app.jar"]
+CMD ["./yukti"]

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: yukti-test-db
+    environment:
+      POSTGRES_DB: yukti_test
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./src/test/resources/test-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./src/test/resources/test-data.sql:/docker-entrypoint-initdb.d/02-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d yukti_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: yukti-localstack
+    environment:
+      SERVICES: ec2,cloudwatch,pricing,ce
+      DEBUG: 1
+      DATA_DIR: /tmp/localstack/data
+      DOCKER_HOST: unix:///var/run/docker.sock
+    ports:
+      - "4566:4566"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./src/test/resources/localstack:/etc/localstack/init/ready.d"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: yukti-test-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru

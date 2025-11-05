@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.App {
+  text-align: center;
+}
+
+/* Custom styles */
+.container {
+  max-width: 1200px;
+}
+
+/* Loading animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Chart customizations */
+.recharts-wrapper {
+  font-family: inherit;
+}
+
+/* Table hover effects */
+.table-hover:hover {
+  background-color: #f9fafb;
+}
+
+/* Button transitions */
+.btn-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-transition:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}

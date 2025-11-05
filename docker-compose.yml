@@ -1,34 +1,50 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: yukti-postgres
+    environment:
+      POSTGRES_DB: yukti_db
+      POSTGRES_USER: yukti_user
+      POSTGRES_PASSWORD: yukti_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./scripts/sample-data.sql:/docker-entrypoint-initdb.d/02-sample-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yukti_user -d yukti_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: yukti-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+
   yukti-app:
     build: .
+    container_name: yukti-app
     ports:
-      - "8081:8090"
+      - "8081:8081"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8090/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - yukti-network
-
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
+      SPRING_PROFILES_ACTIVE: local
+      DB_URL: r2dbc:postgresql://postgres:5432/yukti_db
+      DB_USERNAME: yukti_user
+      DB_PASSWORD: yukti_password
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: dummy
+      AWS_SECRET_ACCESS_KEY: dummy
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    networks:
-      - yukti-network
+      - ./logs:/app/logs
 
-networks:
-  yukti-network:
-    driver: bridge
+volumes:
+  postgres_data:
