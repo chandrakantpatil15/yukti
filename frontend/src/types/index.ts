@@ -1,12 +1,12 @@
 export interface Resource {
   resourceId: string;
   instanceType: string;
-  status: string;
+  status: 'running' | 'stopped' | 'terminated';
   region: string;
   environment: string;
   cpuUtilization: number;
   monthlyCost: number;
-  tags: Record<string, string>;
+  tags: string[];
   associatedResources: AssociatedResource[];
   securityCompliance: SecurityCompliance;
   billingBreakdown: BillingBreakdown;

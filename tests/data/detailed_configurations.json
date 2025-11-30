@@ -1,0 +1,334 @@
+{
+  "service_configurations": {
+    "eks": {
+      "clusters": {
+        "prod-k8s-01": {
+          "addons": [
+            {
+              "name": "aws-ebs-csi-driver",
+              "version": "v1.25.0-eksbuild.1"
+            },
+            {
+              "name": "vpc-cni",
+              "version": "v1.12.0-eksbuild.1"
+            },
+            {
+              "name": "kube-proxy",
+              "version": "v1.28.1-eksbuild.1"
+            },
+            {
+              "name": "coredns",
+              "version": "v1.10.1-eksbuild.1"
+            }
+          ],
+          "logging": {
+            "api_server": true,
+            "audit": true,
+            "authenticator": true,
+            "controller_manager": true,
+            "scheduler": true
+          },
+          "network_config": {
+            "vpc_id": "vpc-0abc123def456789a",
+            "subnet_ids": [
+              "subnet-0abc123def456789a",
+              "subnet-0bcd234efg567890b"
+            ],
+            "security_groups": [
+              "sg-0abc123def456789a"
+            ],
+            "cluster_ip_family": "ipv4",
+            "service_ipv4_cidr": "172.20.0.0/16"
+          }
+        }
+      }
+    },
+    "rds": {
+      "parameter_groups": {
+        "prod-postgres-14": {
+          "family": "postgres14",
+          "parameters": {
+            "max_connections": "1000",
+            "shared_buffers": "8GB",
+            "effective_cache_size": "24GB",
+            "maintenance_work_mem": "2GB",
+            "checkpoint_completion_target": "0.9",
+            "wal_buffers": "16MB",
+            "default_statistics_target": "100",
+            "random_page_cost": "1.1",
+            "effective_io_concurrency": "200",
+            "work_mem": "20971kB",
+            "min_wal_size": "2GB",
+            "max_wal_size": "8GB"
+          }
+        }
+      },
+      "option_groups": {
+        "prod-mysql-8": {
+          "family": "mysql8.0",
+          "options": [
+            {
+              "name": "MEMCACHED",
+              "settings": {
+                "CHUNK_SIZE": "32",
+                "MAX_CONNECTIONS": "2000"
+              }
+            },
+            {
+              "name": "MARIADB_AUDIT_PLUGIN",
+              "settings": {
+                "SERVER_AUDIT_EVENTS": "CONNECT,QUERY,TABLE"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "elasticache": {
+      "parameter_groups": {
+        "prod-redis-6": {
+          "family": "redis6.x",
+          "parameters": {
+            "maxmemory-policy": "volatile-lru",
+            "timeout": "300",
+            "notify-keyspace-events": "AKE",
+            "maxmemory-samples": "10"
+          }
+        }
+      }
+    }
+  },
+  "monitoring_metrics": {
+    "ec2_enhanced": {
+      "memory": {
+        "mem_used_percent": {
+          "unit": "Percent",
+          "period": 60,
+          "statistics": ["Average", "Maximum", "Minimum"]
+        },
+        "mem_available": {
+          "unit": "Bytes",
+          "period": 60,
+          "statistics": ["Average"]
+        },
+        "swap_used": {
+          "unit": "Bytes",
+          "period": 60,
+          "statistics": ["Average", "Maximum"]
+        }
+      },
+      "disk": {
+        "disk_used_percent": {
+          "unit": "Percent",
+          "period": 60,
+          "statistics": ["Average", "Maximum"]
+        },
+        "disk_io_reads": {
+          "unit": "Count/Second",
+          "period": 60,
+          "statistics": ["Average", "Maximum", "Sum"]
+        },
+        "disk_io_writes": {
+          "unit": "Count/Second",
+          "period": 60,
+          "statistics": ["Average", "Maximum", "Sum"]
+        }
+      },
+      "network": {
+        "net_packet_drops": {
+          "unit": "Count",
+          "period": 60,
+          "statistics": ["Sum"]
+        },
+        "net_tcp_established": {
+          "unit": "Count",
+          "period": 60,
+          "statistics": ["Average"]
+        }
+      }
+    },
+    "rds_enhanced": {
+      "os": {
+        "cpuUtilization": {
+          "user": {
+            "unit": "Percent",
+            "period": 60,
+            "statistics": ["Average", "Maximum"]
+          },
+          "system": {
+            "unit": "Percent",
+            "period": 60,
+            "statistics": ["Average", "Maximum"]
+          },
+          "wait": {
+            "unit": "Percent",
+            "period": 60,
+            "statistics": ["Average", "Maximum"]
+          }
+        },
+        "processlist": {
+          "blockedTransactions": {
+            "unit": "Count",
+            "period": 60,
+            "statistics": ["Average", "Maximum"]
+          },
+          "cpuUtilization": {
+            "unit": "Percent",
+            "period": 60,
+            "statistics": ["Average", "Maximum"]
+          }
+        }
+      }
+    }
+  },
+  "resource_relationships": {
+    "tenant1": {
+      "application_stack": {
+        "web_tier": {
+          "load_balancer": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/prod-web/abc123",
+          "target_group": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/prod-web/def456",
+          "auto_scaling_group": "prod-web-asg",
+          "instances": ["i-0abc123def456789a", "i-0bcd234efg567890b"],
+          "security_groups": ["sg-0abc123def456789a"],
+          "subnet_ids": ["subnet-0abc123def456789a", "subnet-0bcd234efg567890b"]
+        },
+        "app_tier": {
+          "load_balancer": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/prod-app/ghi789",
+          "target_group": "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/prod-app/jkl012",
+          "auto_scaling_group": "prod-app-asg",
+          "instances": ["i-0ef1234ghi567890d"],
+          "security_groups": ["sg-0bcd234efg567890b"],
+          "subnet_ids": ["subnet-0cde345fgh678901c", "subnet-0def456ghi789012d"]
+        },
+        "data_tier": {
+          "primary_db": {
+            "cluster": "prod-aurora-01",
+            "instances": ["db-0abc123def456789a", "db-0bcd234efg567890b"],
+            "subnet_group": "prod-db-subnet",
+            "security_groups": ["sg-0cde345fgh678901c"]
+          },
+          "cache": {
+            "cluster": "prod-redis-01",
+            "nodes": ["node-0abc123def456789a", "node-0bcd234efg567890b"],
+            "subnet_group": "prod-cache-subnet",
+            "security_groups": ["sg-0def456ghi789012d"]
+          }
+        }
+      }
+    }
+  },
+  "pricing_models": {
+    "compute": {
+      "ec2": {
+        "on_demand": {
+          "linux": {
+            "us-east-1": {
+              "t3.medium": 0.0416,
+              "t3.large": 0.0832,
+              "m5.large": 0.096,
+              "m5.xlarge": 0.192,
+              "c5.xlarge": 0.17,
+              "r5.xlarge": 0.252
+            },
+            "eu-west-1": {
+              "t3.medium": 0.0464,
+              "t3.large": 0.0928,
+              "m5.large": 0.107,
+              "m5.xlarge": 0.214,
+              "c5.xlarge": 0.189,
+              "r5.xlarge": 0.281
+            }
+          },
+          "windows": {
+            "us-east-1": {
+              "t3.medium": 0.0616,
+              "t3.large": 0.1232,
+              "m5.large": 0.176,
+              "m5.xlarge": 0.352
+            }
+          }
+        },
+        "reserved": {
+          "1_year": {
+            "no_upfront": {
+              "t3.medium": 0.025,
+              "t3.large": 0.05,
+              "m5.large": 0.058,
+              "m5.xlarge": 0.115
+            },
+            "partial_upfront": {
+              "t3.medium": 0.02,
+              "t3.large": 0.04,
+              "m5.large": 0.046,
+              "m5.xlarge": 0.092
+            },
+            "all_upfront": {
+              "t3.medium": 0.018,
+              "t3.large": 0.036,
+              "m5.large": 0.041,
+              "m5.xlarge": 0.082
+            }
+          },
+          "3_year": {
+            "no_upfront": {
+              "t3.medium": 0.017,
+              "t3.large": 0.034,
+              "m5.large": 0.039,
+              "m5.xlarge": 0.078
+            },
+            "partial_upfront": {
+              "t3.medium": 0.014,
+              "t3.large": 0.028,
+              "m5.large": 0.032,
+              "m5.xlarge": 0.064
+            },
+            "all_upfront": {
+              "t3.medium": 0.012,
+              "t3.large": 0.024,
+              "m5.large": 0.028,
+              "m5.xlarge": 0.056
+            }
+          }
+        },
+        "spot": {
+          "us-east-1": {
+            "t3.medium": {
+              "avg": 0.0125,
+              "min": 0.0100,
+              "max": 0.0416
+            },
+            "m5.xlarge": {
+              "avg": 0.0576,
+              "min": 0.0461,
+              "max": 0.192
+            }
+          }
+        }
+      }
+    },
+    "storage": {
+      "ebs": {
+        "gp3": {
+          "storage": 0.08,
+          "iops": {
+            "included": 3000,
+            "price_per_iops": 0.005
+          },
+          "throughput": {
+            "included": 125,
+            "price_per_mibps": 0.04
+          }
+        },
+        "io2": {
+          "storage": 0.125,
+          "iops": {
+            "price_per_iops": 0.065
+          }
+        },
+        "snapshots": {
+          "price_per_gb_month": 0.05
+        }
+      }
+    }
+  }
+}

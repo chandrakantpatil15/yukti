@@ -1,0 +1,360 @@
+openapi: 3.0.0
+info:
+  title: Yukti FinOps API
+  version: 1.0.0
+  description: Enterprise FinOps platform for AWS cost optimization with RBAC and multi-tenant support
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.yukti.io
+    description: Production
+
+paths:
+  /api/v1/auth/signup:
+    post:
+      summary: Create a new user account
+      description: Creates a new user and tenant. First user for a tenant gets admin role.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: securepassword123
+                company_name:
+                  type: string
+                  example: Acme Corp
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user_id:
+                    type: string
+                    format: uuid
+                  tenant_id:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+        '409':
+          description: User already exists
+
+  /api/v1/auth/login:
+    post:
+      summary: Authenticate user and get JWT token
+      description: Returns JWT token for authenticated requests
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tenant_code
+                - email
+                - password
+              properties:
+                tenant_code:
+                  type: string
+                  example: acme-corp-abc123
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  example: securepassword123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: JWT bearer token
+                  expires_at:
+                    type: string
+                    format: date-time
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      role:
+                        type: string
+                        enum: [admin, editor, viewer]
+                      tenant_id:
+                        type: integer
+        '401':
+          description: Invalid credentials
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user (stateless)
+      description: Client should delete token. Server returns success.
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+
+  /api/v1/auth/api-keys:
+    post:
+      summary: Create API key (admin only)
+      description: Creates an API key for service-to-service authentication
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key_name
+              properties:
+                key_name:
+                  type: string
+                  example: production-api-key
+                scopes:
+                  type: array
+                  items:
+                    type: string
+                  example: [read, write]
+                expires_in_days:
+                  type: integer
+                  example: 90
+      responses:
+        '200':
+          description: API key created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  api_key:
+                    type: string
+                    description: Plaintext key (shown only once)
+                  key_id:
+                    type: string
+        '403':
+          description: Admin access required
+
+  /api/v1/filters/resource-types:
+    get:
+      summary: Get distinct resource types for tenant
+      description: Returns list of resource types with counts for filtering UI
+      tags:
+        - Filters
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Resource types list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          example: ec2
+                        label:
+                          type: string
+                          example: EC2
+                        count:
+                          type: integer
+                          example: 45
+
+  /api/v1/filters/tags:
+    get:
+      summary: Get tag keys and values for tenant
+      description: Returns tag keys with counts and top values for each key
+      tags:
+        - Filters
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: Tags data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      tag_keys:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            count:
+                              type: integer
+                      tag_values:
+                        type: object
+                        additionalProperties:
+                          type: array
+                          items:
+                            type: string
+
+  /api/v1/filters/services:
+    get:
+      summary: Get distinct services from cost data
+      description: Returns services with total costs for filtering
+      tags:
+        - Filters
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Services list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        label:
+                          type: string
+                        total_cost:
+                          type: number
+
+  /api/v1/filters/accounts:
+    get:
+      summary: Get AWS accounts for tenant
+      description: Returns list of linked AWS accounts
+      tags:
+        - Filters
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Accounts list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        account_id:
+                          type: string
+                        account_name:
+                          type: string
+                        status:
+                          type: string
+                        label:
+                          type: string
+
+  /api/v1/filters/regions:
+    get:
+      summary: Get distinct regions for tenant
+      description: Returns list of regions with resource counts
+      tags:
+        - Filters
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Regions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        label:
+                          type: string
+                        count:
+                          type: integer
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+

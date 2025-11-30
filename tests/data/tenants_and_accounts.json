@@ -1,0 +1,181 @@
+{
+  "tenants": [
+    {
+      "id": "tenant-001",
+      "name": "Acme Corporation",
+      "industry": "Technology",
+      "subscription": "enterprise",
+      "accounts": [
+        {
+          "id": "123456789012",
+          "name": "acme-prod",
+          "environment": "production",
+          "regions": ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"],
+          "monthly_budget": 85000
+        },
+        {
+          "id": "123456789013",
+          "name": "acme-staging",
+          "environment": "staging",
+          "regions": ["us-east-1", "us-west-2"],
+          "monthly_budget": 25000
+        },
+        {
+          "id": "123456789014",
+          "name": "acme-dev",
+          "environment": "development",
+          "regions": ["us-east-1"],
+          "monthly_budget": 15000
+        }
+      ],
+      "tagging_compliance": 0.95,
+      "mandatory_tags": ["Environment", "Project", "Owner", "CostCenter"],
+      "tag_format": {
+        "Environment": ["production", "staging", "development"],
+        "Project": "^[a-z]+-[a-z0-9]+-[a-z0-9]+$",
+        "Owner": "^[a-zA-Z]+\\.[a-zA-Z]+@acme\\.com$",
+        "CostCenter": "^CC[0-9]{4}$"
+      }
+    },
+    {
+      "id": "tenant-002",
+      "name": "TechStart Inc",
+      "industry": "SaaS",
+      "subscription": "growth",
+      "accounts": [
+        {
+          "id": "234567890123",
+          "name": "techstart-main",
+          "environment": "production",
+          "regions": ["us-east-1", "eu-west-1"],
+          "monthly_budget": 45000
+        },
+        {
+          "id": "234567890124",
+          "name": "techstart-dev",
+          "environment": "development",
+          "regions": ["us-east-1"],
+          "monthly_budget": 12000
+        }
+      ],
+      "tagging_compliance": 0.75,
+      "mandatory_tags": ["env", "project", "team"],
+      "tag_format": {
+        "env": ["prod", "dev", "test"],
+        "project": "^[a-z-]+$",
+        "team": "^team-[a-z]+$"
+      }
+    },
+    {
+      "id": "tenant-003",
+      "name": "HealthCare Plus",
+      "industry": "Healthcare",
+      "subscription": "enterprise",
+      "accounts": [
+        {
+          "id": "345678901234",
+          "name": "hcp-prod-hipaa",
+          "environment": "production",
+          "regions": ["us-east-1", "us-east-2", "us-west-2"],
+          "monthly_budget": 120000,
+          "compliance": "HIPAA"
+        },
+        {
+          "id": "345678901235",
+          "name": "hcp-staging-hipaa",
+          "environment": "staging",
+          "regions": ["us-east-1", "us-east-2"],
+          "monthly_budget": 35000,
+          "compliance": "HIPAA"
+        },
+        {
+          "id": "345678901236",
+          "name": "hcp-dev",
+          "environment": "development",
+          "regions": ["us-east-1"],
+          "monthly_budget": 25000
+        },
+        {
+          "id": "345678901237",
+          "name": "hcp-analytics",
+          "environment": "production",
+          "regions": ["us-east-1", "us-west-2"],
+          "monthly_budget": 55000
+        }
+      ],
+      "tagging_compliance": 0.98,
+      "mandatory_tags": ["Environment", "Application", "Owner", "CostCenter", "Compliance", "DataClassification"],
+      "tag_format": {
+        "Environment": ["production", "staging", "development"],
+        "Application": "^[A-Z]{2,4}-[A-Z]{2,4}-[0-9]{3}$",
+        "Owner": "^[a-zA-Z]+\\.[a-zA-Z]+@healthcareplus\\.com$",
+        "CostCenter": "^HC[0-9]{6}$",
+        "Compliance": ["HIPAA", "SOC2", "None"],
+        "DataClassification": ["PHI", "PII", "Public"]
+      }
+    },
+    {
+      "id": "tenant-004",
+      "name": "StartupHub",
+      "industry": "Technology Incubator",
+      "subscription": "startup",
+      "accounts": [
+        {
+          "id": "456789012345",
+          "name": "startuphub-main",
+          "environment": "production",
+          "regions": ["us-east-1"],
+          "monthly_budget": 8000
+        }
+      ],
+      "tagging_compliance": 0.45,
+      "mandatory_tags": ["env", "project"],
+      "tag_format": {
+        "env": ["prod", "dev"],
+        "project": ".*"
+      }
+    }
+  ],
+  "global_resource_types": {
+    "compute": [
+      "ec2_instance",
+      "lambda_function",
+      "ecs_cluster",
+      "eks_cluster"
+    ],
+    "storage": [
+      "ebs_volume",
+      "s3_bucket",
+      "efs_filesystem",
+      "fsx_filesystem"
+    ],
+    "database": [
+      "rds_instance",
+      "aurora_cluster",
+      "dynamodb_table",
+      "elasticache_cluster"
+    ],
+    "networking": [
+      "vpc",
+      "subnet",
+      "security_group",
+      "load_balancer",
+      "nat_gateway",
+      "vpn_connection",
+      "transit_gateway"
+    ],
+    "other": [
+      "cloudwatch_log_group",
+      "sns_topic",
+      "sqs_queue",
+      "cloudfront_distribution"
+    ]
+  },
+  "instance_types": {
+    "general_purpose": ["t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "m5.large", "m5.xlarge", "m5.2xlarge"],
+    "compute_optimized": ["c5.large", "c5.xlarge", "c5.2xlarge", "c5.4xlarge"],
+    "memory_optimized": ["r5.large", "r5.xlarge", "r5.2xlarge", "r5.4xlarge"],
+    "storage_optimized": ["i3.large", "i3.xlarge", "i3.2xlarge"],
+    "gpu": ["g4dn.xlarge", "g4dn.2xlarge", "p3.2xlarge"]
+  }
+}

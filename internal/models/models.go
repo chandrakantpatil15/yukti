@@ -2,17 +2,18 @@ package models
 
 import (
 	"time"
+
 	"github.com/shopspring/decimal"
 )
 
 type Resource struct {
-	ID           uint      `json:"id" gorm:"primaryKey"`
+	ID           int64     `json:"id" gorm:"primaryKey"`
 	ResourceID   string    `json:"resource_id" gorm:"uniqueIndex;type:varchar(255)"`
 	ResourceType string    `json:"resource_type"`
 	InstanceType string    `json:"instance_type"`
 	Region       string    `json:"region"`
 	Status       string    `json:"status"`
-	ProjectID    *uint     `json:"project_id"`
+	ProjectID    *int64    `json:"project_id"`
 	Environment  string    `json:"environment"`
 	LaunchTime   time.Time `json:"launch_time"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -20,8 +21,8 @@ type Resource struct {
 }
 
 type ResourceCost struct {
-	ID         uint            `json:"id" gorm:"primaryKey"`
-	ResourceID uint            `json:"resource_id"`
+	ID         int64           `json:"id" gorm:"primaryKey"`
+	ResourceID int64           `json:"resource_id"`
 	Date       time.Time       `json:"date"`
 	CostUSD    decimal.Decimal `json:"cost_usd" gorm:"type:decimal(10,4)"`
 	UsageHours int             `json:"usage_hours"`
@@ -30,15 +31,15 @@ type ResourceCost struct {
 }
 
 type OptimizationRecommendation struct {
-	ID                uint            `json:"id" gorm:"primaryKey"`
-	ResourceID        uint            `json:"resource_id"`
-	RecommendationType string         `json:"recommendation_type"`
-	CurrentCost       decimal.Decimal `json:"current_cost" gorm:"type:decimal(10,4)"`
-	OptimizedCost     decimal.Decimal `json:"optimized_cost" gorm:"type:decimal(10,4)"`
-	PotentialSavings  decimal.Decimal `json:"potential_savings" gorm:"type:decimal(10,4)"`
-	Confidence        float64         `json:"confidence"`
-	Status            string          `json:"status"`
-	CreatedAt         time.Time       `json:"created_at"`
+	ID                 int64           `json:"id" gorm:"primaryKey"`
+	ResourceID         int64           `json:"resource_id" gorm:"type:bigint"`
+	RecommendationType string          `json:"recommendation_type"`
+	CurrentCost        decimal.Decimal `json:"current_cost" gorm:"type:decimal(10,4)"`
+	OptimizedCost      decimal.Decimal `json:"optimized_cost" gorm:"type:decimal(10,4)"`
+	PotentialSavings   decimal.Decimal `json:"potential_savings" gorm:"type:decimal(10,4)"`
+	Confidence         float64         `json:"confidence"`
+	Status             string          `json:"status"`
+	CreatedAt          time.Time       `json:"created_at"`
 }
 
 type AWSPricing struct {
@@ -54,10 +55,10 @@ type AWSPricing struct {
 }
 
 type ResourceMetrics struct {
-	ID               uint      `json:"id" gorm:"primaryKey"`
-	ResourceID       uint      `json:"resource_id"`
-	Timestamp        time.Time `json:"timestamp"`
-	CPUUtilization   float64   `json:"cpu_utilization"`
-	MemoryUtilization float64  `json:"memory_utilization"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID                uint      `json:"id" gorm:"primaryKey"`
+	ResourceID        uint      `json:"resource_id"`
+	Timestamp         time.Time `json:"timestamp"`
+	CPUUtilization    float64   `json:"cpu_utilization"`
+	MemoryUtilization float64   `json:"memory_utilization"`
+	CreatedAt         time.Time `json:"created_at"`
 }

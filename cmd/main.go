@@ -4,28 +4,48 @@ import (
 	"log"
 	"os"
 
-	"github.com/cloudcostoptimizer/yukti/internal/api"
-	"github.com/cloudcostoptimizer/yukti/internal/config"
-	"github.com/cloudcostoptimizer/yukti/internal/database"
+	"yukti/internal/api"
+	"yukti/internal/config"
+	"yukti/internal/database"
 )
 
 func main() {
-	cfg := config.Load()
+	log.Printf("[INFO] ========================================")
+	log.Printf("[INFO] Yukti FinOps Platform Starting...")
+	log.Printf("[INFO] ========================================")
 	
-	db, err := database.Connect(cfg.DatabaseURL)
+	log.Printf("[INFO] Loading configuration...")
+	cfg := config.Load()
+	log.Printf("[INFO] Configuration loaded successfully")
+	
+	log.Printf("[INFO] Loading secrets...")
+	config.LoadSecrets()
+	log.Printf("[INFO] Secrets loaded successfully")
+	
+	log.Printf("[INFO] Connecting to database...")
+	_, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatalf("[FATAL] Failed to connect to database: %v", err)
 	}
+	defer database.Close()
+	log.Printf("[INFO] Database connection established")
 
-	server := api.NewServer(db)
+	log.Printf("[INFO] Initializing API server...")
+	server := api.NewServer(database.DB)
 	
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		log.Fatal("[FATAL] PORT environment variable not set. Check .env.ports file.")
 	}
 	
-	log.Printf("Starting Yukti FinOps server on port %s", port)
+	log.Printf("[INFO] ========================================")
+	log.Printf("[INFO] Server starting on port %s", port)
+	log.Printf("[INFO] Health check: http://localhost:%s/health", port)
+	log.Printf("[INFO] Admin API: http://localhost:%s/api/admin/*", port)
+	log.Printf("[INFO] Customer API: http://localhost:%s/api/customers/*", port)
+	log.Printf("[INFO] ========================================")
+	
 	if err := server.Run(":" + port); err != nil {
-		log.Fatal("Server failed to start:", err)
+		log.Fatalf("[FATAL] Server failed to start: %v", err)
 	}
 }

@@ -1,0 +1,246 @@
+{
+  "tenants": [
+    {
+      "tenant_id": "tenant1",
+      "tenant_name": "Enterprise Corp",
+      "subscription_tier": "enterprise",
+      "aws_account_id": "123456789012",
+      "resources": {
+        "ec2": [
+          {
+            "instance_id": "i-0abc123def456789a",
+            "instance_type": "t3.xlarge",
+            "region": "us-east-1",
+            "availability_zone": "us-east-1a",
+            "state": "running",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "launch_time": "2025-10-01T00:00:00Z",
+            "tags": {
+              "Name": "prod-web-01",
+              "Environment": "production",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          },
+          {
+            "instance_id": "i-0bcd234efg567890b",
+            "instance_type": "m5.2xlarge",
+            "region": "us-west-2",
+            "availability_zone": "us-west-2b",
+            "state": "running",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "launch_time": "2025-09-15T00:00:00Z",
+            "tags": {
+              "Name": "prod-db-01",
+              "Environment": "production",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          }
+        ],
+        "rds": [
+          {
+            "db_instance_identifier": "prod-postgres-01",
+            "db_instance_class": "db.r5.2xlarge",
+            "engine": "postgres",
+            "engine_version": "14.7",
+            "storage_type": "gp3",
+            "allocated_storage": 500,
+            "region": "us-east-1",
+            "availability_zone": "us-east-1a",
+            "state": "available",
+            "tags": {
+              "Environment": "production",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          },
+          {
+            "db_instance_identifier": "staging-mysql-01",
+            "db_instance_class": "db.t3.large",
+            "engine": "mysql",
+            "engine_version": "8.0.28",
+            "storage_type": "gp2",
+            "allocated_storage": 100,
+            "region": "us-west-2",
+            "availability_zone": "us-west-2a",
+            "state": "available",
+            "tags": {
+              "Environment": "staging",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          }
+        ],
+        "s3": [
+          {
+            "bucket_name": "prod-static-assets-123",
+            "region": "us-east-1",
+            "creation_date": "2025-01-01T00:00:00Z",
+            "size_bytes": 1099511627776,
+            "object_count": 250000,
+            "tags": {
+              "Environment": "production",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          }
+        ],
+        "elasticache": [
+          {
+            "cache_cluster_id": "prod-redis-01",
+            "cache_node_type": "cache.r5.xlarge",
+            "engine": "redis",
+            "engine_version": "6.x",
+            "num_cache_nodes": 2,
+            "region": "us-east-1",
+            "availability_zone": "us-east-1a",
+            "state": "available",
+            "tags": {
+              "Environment": "production",
+              "Project": "e-commerce",
+              "CostCenter": "cc-123"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "tenant_id": "tenant2",
+      "tenant_name": "Startup Inc",
+      "subscription_tier": "standard",
+      "aws_account_id": "234567890123",
+      "resources": {
+        "ec2": [
+          {
+            "instance_id": "i-0cde345fgh678901c",
+            "instance_type": "t3.medium",
+            "region": "us-east-1",
+            "availability_zone": "us-east-1b",
+            "state": "running",
+            "platform": "linux",
+            "architecture": "x86_64",
+            "launch_time": "2025-10-15T00:00:00Z",
+            "tags": {
+              "Name": "dev-app-01",
+              "Environment": "development",
+              "Project": "mobile-app",
+              "CostCenter": "cc-456"
+            }
+          }
+        ],
+        "rds": [
+          {
+            "db_instance_identifier": "dev-postgres-01",
+            "db_instance_class": "db.t3.medium",
+            "engine": "postgres",
+            "engine_version": "14.7",
+            "storage_type": "gp2",
+            "allocated_storage": 50,
+            "region": "us-east-1",
+            "availability_zone": "us-east-1b",
+            "state": "available",
+            "tags": {
+              "Environment": "development",
+              "Project": "mobile-app",
+              "CostCenter": "cc-456"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "resource_types": [
+    {
+      "service": "ec2",
+      "resource_types": [
+        "instance",
+        "volume",
+        "snapshot",
+        "ami",
+        "security-group",
+        "network-interface",
+        "vpc",
+        "subnet",
+        "route-table",
+        "internet-gateway"
+      ]
+    },
+    {
+      "service": "rds",
+      "resource_types": [
+        "db-instance",
+        "db-snapshot",
+        "db-cluster",
+        "db-subnet-group",
+        "db-parameter-group"
+      ]
+    },
+    {
+      "service": "s3",
+      "resource_types": [
+        "bucket",
+        "object"
+      ]
+    },
+    {
+      "service": "elasticache",
+      "resource_types": [
+        "cache-cluster",
+        "snapshot",
+        "parameter-group",
+        "subnet-group"
+      ]
+    },
+    {
+      "service": "lambda",
+      "resource_types": [
+        "function",
+        "layer",
+        "alias",
+        "event-source-mapping"
+      ]
+    }
+  ],
+  "pricing": {
+    "ec2": {
+      "t3.medium": {
+        "on_demand_price_usd": 0.0416,
+        "reserved_1yr_no_upfront": 0.0250,
+        "spot_price_avg": 0.0125
+      },
+      "t3.xlarge": {
+        "on_demand_price_usd": 0.1664,
+        "reserved_1yr_no_upfront": 0.0998,
+        "spot_price_avg": 0.0499
+      },
+      "m5.2xlarge": {
+        "on_demand_price_usd": 0.384,
+        "reserved_1yr_no_upfront": 0.230,
+        "spot_price_avg": 0.115
+      }
+    },
+    "rds": {
+      "db.t3.medium": {
+        "on_demand_price_usd": 0.082,
+        "reserved_1yr_no_upfront": 0.049
+      },
+      "db.t3.large": {
+        "on_demand_price_usd": 0.164,
+        "reserved_1yr_no_upfront": 0.098
+      },
+      "db.r5.2xlarge": {
+        "on_demand_price_usd": 0.768,
+        "reserved_1yr_no_upfront": 0.461
+      }
+    },
+    "elasticache": {
+      "cache.r5.xlarge": {
+        "on_demand_price_usd": 0.384,
+        "reserved_1yr_no_upfront": 0.230
+      }
+    }
+  }
+}

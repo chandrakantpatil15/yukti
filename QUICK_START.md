@@ -8,15 +8,15 @@ make start-all
 
 That's it! This will:
 - ✅ Sync AWS data
-- ✅ Start API server (port 8085)
-- ✅ Start health monitor (port 8081)  
+- ✅ Start API server (port 8080)
+- ✅ Start ML service (port 8000)  
 - ✅ Start React UI (port 3000)
 
 ## **Access Your Application**
 
 - **📱 Main UI**: http://localhost:3000
-- **🔧 API**: http://localhost:8085
-- **🏥 Health**: http://localhost:8081
+- **🔧 API**: http://localhost:8080
+- **🤖 ML Service**: http://localhost:8000
 
 ## **Common Commands**
 

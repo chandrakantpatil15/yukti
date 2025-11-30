@@ -1,0 +1,381 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/pricing"
+	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+)
+
+func RunFullPricingSync() {
+
+// fullSyncServiceConfig represents a single service configuration for pricing sync
+type fullSyncServiceConfig struct {
+	attributes []string
+	regions    []string
+}
+
+// AWS service categories and their attributes
+var fullSyncServiceMap = map[string]fullSyncServiceConfig {
+	attributes []string
+	regions    []string
+}{
+	"AmazonEC2": {
+		attributes: []string{"instanceType", "vcpu", "memory", "storage", "operatingSystem"},
+		regions:    nil, // nil means all regions
+	},
+	"AmazonRDS": {
+		attributes: []string{"instanceType", "databaseEngine", "deploymentOption", "databaseEdition"},
+		regions:    nil,
+	},
+	"AmazonRedshift": {
+		attributes: []string{"nodeType", "clusterType"},
+		regions:    nil,
+	},
+	"AmazonElastiCache": {
+		attributes: []string{"cacheNodeType", "cacheEngine"},
+		regions:    nil,
+	},
+	"AmazonOpenSearch": {
+		attributes: []string{"instanceType", "engineVersion"},
+		regions:    nil,
+	},
+	"AmazonMQ": {
+		attributes: []string{"brokerType", "engineVersion"},
+		regions:    nil,
+	},
+	"AWSLambda": {
+		attributes: []string{"memory"},
+		regions:    nil,
+	},
+	"AmazonDynamoDB": {
+		attributes: []string{"readCapacityUnit", "writeCapacityUnit"},
+		regions:    nil,
+	},
+	"AmazonECS": {
+		attributes: []string{"launchType"},
+		regions:    nil,
+	},
+	"AWSEKS": {
+		attributes: []string{"version"},
+		regions:    nil,
+	},
+	// Global services
+	"AmazonRoute53": {
+		attributes: []string{"recordType", "routingPolicy"},
+		regions:    []string{"us-east-1"},
+	},
+	"AmazonCloudFront": {
+		attributes: []string{"priceClass", "origin"},
+		regions:    []string{"us-east-1"},
+	},
+}
+
+// RegionMap maps AWS region codes to display names
+var regionMap = map[string]string{
+	"us-east-1":      "US East (N. Virginia)",
+	"us-west-2":      "US West (Oregon)",
+	"us-west-1":      "US West (N. California)",
+	"us-east-2":      "US East (Ohio)",
+	"eu-west-1":      "Europe (Ireland)",
+	"eu-central-1":   "Europe (Frankfurt)",
+	"eu-west-2":      "Europe (London)",
+	"eu-west-3":      "Europe (Paris)",
+	"ap-southeast-1": "Asia Pacific (Singapore)",
+	"ap-southeast-2": "Asia Pacific (Sydney)",
+	"ap-northeast-1": "Asia Pacific (Tokyo)",
+	"ap-northeast-2": "Asia Pacific (Seoul)",
+	"ap-south-1":     "Asia Pacific (Mumbai)",
+	"ca-central-1":   "Canada (Central)",
+	"sa-east-1":      "South America (Sao Paulo)",
+}
+
+func main() {
+	fmt.Println("🚀 FULL AWS PRICING SYNC")
+	fmt.Println("Fetching pricing for 200+ AWS services")
+	fmt.Println(strings.Repeat("=", 50))
+
+	// Database connection
+	dsn := "host=localhost user=yukti password=yukti123 dbname=yukti_finops port=5432 sslmode=disable"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("❌ Database connection failed: %v", err)
+	}
+
+	// Check cache validity (24 hours)
+	var cacheCount int64
+	db.Model(&AWSPricingData{}).Where("last_updated > ? AND is_active = true", 
+		time.Now().Add(-24*time.Hour)).Count(&cacheCount)
+
+	if cacheCount > 1000 { // If we have substantial cached data
+		fmt.Printf("✅ Cache valid: %d pricing records (< 24 hours old)\n", cacheCount)
+		showCachedData(db)
+		return
+	}
+
+	fmt.Println("🔄 Cache expired or empty, fetching from AWS...")
+
+	// AWS Pricing client (must be us-east-1)
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
+	if err != nil {
+		log.Fatalf("❌ AWS config failed: %v", err)
+	}
+
+	client := pricing.NewFromConfig(cfg)
+
+	totalFetched := 0
+	errorCount := 0
+
+	// Mark all existing records as inactive
+	db.Model(&AWSPricingData{}).Update("is_active", false)
+
+	// Process each service
+	for serviceCode, service := range awsServices {
+		fmt.Printf("\n📦 Processing %s...\n", serviceCode)
+		
+		regions := service.regions
+		if regions == nil {
+			regions = getRegionList()
+		}
+
+		for _, region := range regions {
+			fmt.Printf("  📍 Region: %s\n", region)
+			
+			// Get resource types for the service
+			resourceTypes, err := getResourceTypes(client, serviceCode)
+			if err != nil {
+				fmt.Printf("  ❌ Failed to get resource types: %v\n", err)
+				errorCount++
+				continue
+			}
+
+			for _, resourceType := range resourceTypes {
+				pricing, err := fetchServicePricing(client, serviceCode, resourceType, region, service.attributes)
+				if err != nil {
+					fmt.Printf("  ❌ %s/%s: %v\n", resourceType, region, err)
+					errorCount++
+					continue
+				}
+
+				if pricing != nil {
+					if err := db.Save(pricing).Error; err != nil {
+						fmt.Printf("  ❌ Failed to store %s/%s: %v\n", resourceType, region, err)
+						errorCount++
+					} else {
+						totalFetched++
+					}
+				}
+
+				// Rate limiting
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}
+
+	fmt.Printf("\n🎉 SYNC COMPLETE!\n")
+	fmt.Printf("✅ Successfully fetched: %d pricing records\n", totalFetched)
+	fmt.Printf("❌ Errors encountered: %d\n", errorCount)
+
+	showCachedData(db)
+}
+
+func getRegionList() []string {
+	regions := make([]string, 0, len(regionMap))
+	for region := range regionMap {
+		regions = append(regions, region)
+	}
+	return regions
+}
+
+func getResourceTypes(client *pricing.Client, serviceCode string) ([]string, error) {
+	var resourceTypes []string
+	var nextToken *string
+
+	for {
+		input := &pricing.GetAttributeValuesInput{
+			ServiceCode:   aws.String(serviceCode),
+			AttributeName: aws.String("resourceType"),
+			MaxResults:    aws.Int32(100),
+		}
+		
+		if nextToken != nil {
+			input.NextToken = nextToken
+		}
+
+		result, err := client.GetAttributeValues(context.TODO(), input)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, attr := range result.AttributeValues {
+			if attr.Value != nil {
+				resourceTypes = append(resourceTypes, *attr.Value)
+			}
+		}
+
+		nextToken = result.NextToken
+		if nextToken == nil {
+			break
+		}
+
+		time.Sleep(200 * time.Millisecond) // Rate limiting
+	}
+
+	return resourceTypes, nil
+}
+
+func fetchServicePricing(client *pricing.Client, serviceCode, resourceType, region string, attributes []string) (*AWSPricingData, error) {
+	filters := []types.Filter{
+		{Type: types.FilterTypeTermMatch, Field: aws.String("resourceType"), Value: aws.String(resourceType)},
+		{Type: types.FilterTypeTermMatch, Field: aws.String("location"), Value: aws.String(regionMap[region])},
+	}
+
+	// Add service-specific filters
+	for _, attr := range attributes {
+		filters = append(filters, types.Filter{
+			Type:  types.FilterTypeTermMatch,
+			Field: aws.String(attr),
+			Value: aws.String("*"),
+		})
+	}
+
+	result, err := client.GetProducts(context.TODO(), &pricing.GetProductsInput{
+		ServiceCode: aws.String(serviceCode),
+		Filters:     filters,
+		MaxResults:  aws.Int32(100),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.PriceList) == 0 {
+		return nil, nil
+	}
+
+	// Process pricing data
+	pricingData := &AWSPricingData{
+		ServiceCode:  serviceCode,
+		ResourceType: resourceType,
+		Region:      region,
+		LastUpdated: time.Now(),
+		IsActive:    true,
+	}
+
+	// Parse the first product for attributes
+	var product map[string]interface{}
+	if err := json.Unmarshal([]byte(result.PriceList[0]), &product); err != nil {
+		return nil, err
+	}
+
+	// Extract attributes
+	attrs := make(map[string]interface{})
+	if productAttrs, ok := product["attributes"].(map[string]interface{}); ok {
+		for _, attr := range attributes {
+			if val, exists := productAttrs[attr]; exists {
+				attrs[attr] = val
+			}
+		}
+	}
+	attributesJSON, _ := json.Marshal(attrs)
+	pricingData.Attributes = attributesJSON
+
+	// Extract pricing terms
+	if terms, ok := product["terms"].(map[string]interface{}); ok {
+		// On-Demand pricing
+		if onDemand, ok := terms["OnDemand"].(map[string]interface{}); ok {
+			pricingData.OnDemandPriceUSD = extractPrice(onDemand)
+		}
+
+		// Reserved pricing
+		if reserved, ok := terms["Reserved"].(map[string]interface{}); ok {
+			pricingData.ReservedPriceUSD = extractPrice(reserved)
+		}
+
+		// Spot pricing (if available)
+		if spot, ok := terms["Spot"].(map[string]interface{}); ok {
+			pricingData.SpotPriceUSD = extractPrice(spot)
+		}
+	}
+
+	return pricingData, nil
+}
+
+func extractPrice(terms map[string]interface{}) float64 {
+	for _, dimension := range terms {
+		if dim, ok := dimension.(map[string]interface{}); ok {
+			if priceDims, ok := dim["priceDimensions"].(map[string]interface{}); ok {
+				for _, pd := range priceDims {
+					if pdMap, ok := pd.(map[string]interface{}); ok {
+						if pricePerUnit, ok := pdMap["pricePerUnit"].(map[string]interface{}); ok {
+							if usd, ok := pricePerUnit["USD"].(string); ok {
+								price, _ := strconv.ParseFloat(usd, 64)
+								return price
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func showCachedData(db *gorm.DB) {
+	var total int64
+	db.Model(&AWSPricingData{}).Where("is_active = true").Count(&total)
+	fmt.Printf("\n📊 Total active pricing records: %d\n", total)
+
+	type ServiceCount struct {
+		ServiceCode string
+		Count      int64
+	}
+	var serviceCounts []ServiceCount
+	db.Model(&AWSPricingData{}).
+		Where("is_active = true").
+		Select("service_code, count(*) as count").
+		Group("service_code").
+		Order("count desc").
+		Find(&serviceCounts)
+
+	fmt.Println("\n📦 Pricing by Service:")
+	for _, s := range serviceCounts {
+		fmt.Printf("  %s: %d resources\n", s.ServiceCode, s.Count)
+	}
+
+	type ExpensiveResource struct {
+		ServiceCode      string
+		ResourceType    string
+		Region         string
+		OnDemandPriceUSD float64
+	}
+	var expensive []ExpensiveResource
+	db.Model(&AWSPricingData{}).
+		Where("is_active = true").
+		Order("on_demand_price_usd desc").
+		Limit(10).
+		Find(&expensive)
+
+	if len(expensive) > 0 {
+		fmt.Println("\n💰 Most Expensive Resources:")
+		fmt.Println("Service          | Resource Type     | Region    | Price/hour")
+		fmt.Println(strings.Repeat("-", 75))
+		for _, e := range expensive {
+			fmt.Printf("%-15s | %-16s | %-9s | $%-9.4f\n",
+				e.ServiceCode,
+				e.ResourceType,
+				e.Region,
+				e.OnDemandPriceUSD)
+		}
+	}
+}

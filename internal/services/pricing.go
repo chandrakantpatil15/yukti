@@ -9,7 +9,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-	"github.com/cloudcostoptimizer/yukti/internal/models"
+	"yukti/internal/models"
 )
 
 type PricingService struct {

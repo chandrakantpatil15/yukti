@@ -14,7 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/pricing/types"
 	"github.com/shopspring/decimal"
 
-	"github.com/cloudcostoptimizer/yukti/internal/models"
+	"yukti/internal/models"
 	"gorm.io/gorm"
 	"gorm.io/driver/postgres"
 )

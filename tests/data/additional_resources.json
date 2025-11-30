@@ -1,0 +1,254 @@
+{
+  "tenant1": {
+    "networking": {
+      "vpcs": [
+        {
+          "vpc_id": "vpc-0abc123def456789a",
+          "cidr_block": "10.0.0.0/16",
+          "region": "us-east-1",
+          "state": "available",
+          "tags": {
+            "Name": "prod-vpc",
+            "Environment": "production"
+          }
+        }
+      ],
+      "subnets": [
+        {
+          "subnet_id": "subnet-0abc123def456789a",
+          "vpc_id": "vpc-0abc123def456789a",
+          "cidr_block": "10.0.1.0/24",
+          "availability_zone": "us-east-1a",
+          "state": "available",
+          "tags": {
+            "Name": "prod-subnet-1a",
+            "Type": "private"
+          }
+        },
+        {
+          "subnet_id": "subnet-0bcd234efg567890b",
+          "vpc_id": "vpc-0abc123def456789a",
+          "cidr_block": "10.0.2.0/24",
+          "availability_zone": "us-east-1b",
+          "state": "available",
+          "tags": {
+            "Name": "prod-subnet-1b",
+            "Type": "public"
+          }
+        }
+      ]
+    },
+    "storage": {
+      "ebs_volumes": [
+        {
+          "volume_id": "vol-0abc123def456789a",
+          "size": 100,
+          "volume_type": "gp3",
+          "iops": 3000,
+          "throughput": 125,
+          "state": "in-use",
+          "availability_zone": "us-east-1a",
+          "attached_instance": "i-0abc123def456789a",
+          "tags": {
+            "Name": "prod-web-01-root",
+            "Environment": "production"
+          }
+        },
+        {
+          "volume_id": "vol-0bcd234efg567890b",
+          "size": 500,
+          "volume_type": "io2",
+          "iops": 5000,
+          "throughput": 500,
+          "state": "in-use",
+          "availability_zone": "us-west-2b",
+          "attached_instance": "i-0bcd234efg567890b",
+          "tags": {
+            "Name": "prod-db-01-data",
+            "Environment": "production"
+          }
+        }
+      ],
+      "ebs_snapshots": [
+        {
+          "snapshot_id": "snap-0abc123def456789a",
+          "volume_id": "vol-0abc123def456789a",
+          "volume_size": 100,
+          "state": "completed",
+          "start_time": "2025-11-07T00:00:00Z",
+          "tags": {
+            "Name": "prod-web-01-root-backup",
+            "AutoBackup": "true"
+          }
+        }
+      ]
+    },
+    "serverless": {
+      "lambda_functions": [
+        {
+          "function_name": "prod-order-processor",
+          "runtime": "nodejs18.x",
+          "memory_size": 1024,
+          "timeout": 30,
+          "state": "Active",
+          "last_modified": "2025-10-15T00:00:00Z",
+          "code_size": 15728640,
+          "environment": {
+            "variables": {
+              "ENVIRONMENT": "production",
+              "REGION": "us-east-1"
+            }
+          },
+          "tags": {
+            "Service": "OrderProcessing",
+            "Environment": "production"
+          }
+        },
+        {
+          "function_name": "prod-notification-sender",
+          "runtime": "python3.9",
+          "memory_size": 512,
+          "timeout": 60,
+          "state": "Active",
+          "last_modified": "2025-10-15T00:00:00Z",
+          "code_size": 5242880,
+          "environment": {
+            "variables": {
+              "ENVIRONMENT": "production",
+              "REGION": "us-east-1"
+            }
+          },
+          "tags": {
+            "Service": "Notifications",
+            "Environment": "production"
+          }
+        }
+      ]
+    },
+    "containers": {
+      "ecs_clusters": [
+        {
+          "cluster_name": "prod-web-cluster",
+          "status": "ACTIVE",
+          "registered_container_instances_count": 5,
+          "running_tasks_count": 10,
+          "pending_tasks_count": 0,
+          "active_services_count": 2,
+          "tags": {
+            "Environment": "production",
+            "Project": "e-commerce"
+          }
+        }
+      ],
+      "ecs_services": [
+        {
+          "service_name": "prod-web-service",
+          "cluster_name": "prod-web-cluster",
+          "task_definition": "web-app:23",
+          "desired_count": 4,
+          "running_count": 4,
+          "pending_count": 0,
+          "launch_type": "FARGATE",
+          "platform_version": "LATEST",
+          "tags": {
+            "Service": "WebApp",
+            "Environment": "production"
+          }
+        }
+      ]
+    }
+  },
+  "tenant2": {
+    "networking": {
+      "vpcs": [
+        {
+          "vpc_id": "vpc-0def456ghi789012b",
+          "cidr_block": "172.16.0.0/16",
+          "region": "us-east-1",
+          "state": "available",
+          "tags": {
+            "Name": "dev-vpc",
+            "Environment": "development"
+          }
+        }
+      ],
+      "subnets": [
+        {
+          "subnet_id": "subnet-0def456ghi789012b",
+          "vpc_id": "vpc-0def456ghi789012b",
+          "cidr_block": "172.16.1.0/24",
+          "availability_zone": "us-east-1b",
+          "state": "available",
+          "tags": {
+            "Name": "dev-subnet-1b",
+            "Type": "private"
+          }
+        }
+      ]
+    },
+    "storage": {
+      "ebs_volumes": [
+        {
+          "volume_id": "vol-0def456ghi789012b",
+          "size": 50,
+          "volume_type": "gp3",
+          "iops": 3000,
+          "throughput": 125,
+          "state": "in-use",
+          "availability_zone": "us-east-1b",
+          "attached_instance": "i-0cde345fgh678901c",
+          "tags": {
+            "Name": "dev-app-01-root",
+            "Environment": "development"
+          }
+        }
+      ]
+    },
+    "serverless": {
+      "lambda_functions": [
+        {
+          "function_name": "dev-test-function",
+          "runtime": "nodejs18.x",
+          "memory_size": 512,
+          "timeout": 30,
+          "state": "Active",
+          "last_modified": "2025-10-20T00:00:00Z",
+          "code_size": 2097152,
+          "environment": {
+            "variables": {
+              "ENVIRONMENT": "development",
+              "REGION": "us-east-1"
+            }
+          },
+          "tags": {
+            "Service": "Testing",
+            "Environment": "development"
+          }
+        }
+      ]
+    }
+  },
+  "pricing": {
+    "ebs": {
+      "gp3": {
+        "price_per_gb_month": 0.08,
+        "price_per_iops_month": 0.005,
+        "price_per_throughput_month": 0.04
+      },
+      "io2": {
+        "price_per_gb_month": 0.125,
+        "price_per_iops_month": 0.065
+      }
+    },
+    "lambda": {
+      "price_per_request": 0.0000002,
+      "price_per_gb_second": 0.0000166667
+    },
+    "ecs": {
+      "fargate": {
+        "price_per_vcpu_hour": 0.04048,
+        "price_per_gb_hour": 0.004445
+      }
+    }
+  }
+}

@@ -1,67 +1,16 @@
 import React from 'react';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-} from 'chart.js';
-import { CostSummary } from '../types';
-
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
+import { BarChart3 } from 'lucide-react';
 
 interface CostChartProps {
-  data: CostSummary;
-  type: 'doughnut' | 'bar';
-  title: string;
+  data: any; // TODO: Add proper type
 }
 
-export const CostChart: React.FC<CostChartProps> = ({ data, type, title }) => {
-  const doughnutData = {
-    labels: ['Current Cost', 'Potential Savings'],
-    datasets: [{
-      data: [data.totalMonthlyCost - data.potentialSavings, data.potentialSavings],
-      backgroundColor: ['#6b7280', '#10b981'],
-      borderWidth: 0,
-    }]
-  };
-
-  const barData = {
-    labels: ['Current', 'After Optimization'],
-    datasets: [{
-      label: 'Monthly Cost ($)',
-      data: [data.totalMonthlyCost, data.totalMonthlyCost - data.potentialSavings],
-      backgroundColor: ['#ef4444', '#10b981'],
-      borderRadius: 4,
-    }]
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
-        labels: {
-          padding: 20,
-          usePointStyle: true,
-        }
-      }
-    }
-  };
-
+export const CostChart = ({ data }: CostChartProps) => {
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm min-h-[350px]">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
-      <div className="h-72">
-        {type === 'doughnut' ? (
-          <Doughnut data={doughnutData} options={options} />
-        ) : (
-          <Bar data={barData} options={options} />
-        )}
+    <div className="h-64 flex items-center justify-center">
+      <div className="flex flex-col items-center text-neutral-500 dark:text-neutral-400">
+        <BarChart3 className="w-12 h-12 mb-4" />
+        <p>Cost data visualization will be implemented here</p>
       </div>
     </div>
   );

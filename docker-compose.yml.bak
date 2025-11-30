@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: yukti-postgres
+    environment:
+      POSTGRES_DB: yukti
+      POSTGRES_USER: yukti
+      POSTGRES_PASSWORD: yukti123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./scripts/audit_logs.sql:/docker-entrypoint-initdb.d/02-audit.sql
+      - ./scripts/seed_data.sql:/docker-entrypoint-initdb.d/03-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yukti"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yukti-backend
+    environment:
+      DATABASE_URL: postgresql://yukti:yukti123@postgres:5432/yukti?sslmode=disable
+      PORT: 8080
+      JWT_SECRET: yukti-secret-key-change-in-production
+      AWS_REGION: us-east-1
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ML Service
+  ml-service:
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    container_name: yukti-ml
+    environment:
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ml_models:/app/models
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: yukti-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+
+  # Prometheus (Monitoring)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: yukti-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana (Dashboards)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: yukti-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  ml_models:

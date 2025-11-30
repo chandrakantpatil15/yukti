@@ -4,7 +4,7 @@ import (
 	"time"
 	"gorm.io/gorm"
 	"github.com/shopspring/decimal"
-	"github.com/cloudcostoptimizer/yukti/internal/models"
+	"yukti/internal/models"
 )
 
 type FinOpsService struct {

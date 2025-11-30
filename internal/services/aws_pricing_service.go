@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,7 +13,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/cloudcostoptimizer/yukti/internal/models"
+	"yukti/internal/models"
 )
 
 type AWSPricingService struct {

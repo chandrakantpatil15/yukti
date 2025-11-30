@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/cloudcostoptimizer/yukti/internal/config"
-	"github.com/cloudcostoptimizer/yukti/internal/services"
+	"yukti/internal/config"
+	"yukti/internal/services"
 )
 
 func main() {

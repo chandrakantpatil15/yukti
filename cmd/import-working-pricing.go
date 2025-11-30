@@ -16,7 +16,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/cloudcostoptimizer/yukti/internal/models"
+	"yukti/internal/models"
 )
 
 func main() {
