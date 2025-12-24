@@ -25,6 +25,8 @@ const navItems = [
   { path: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: 'hidden-costs', label: 'Hidden Costs', icon: DollarSign },
   { path: 'resources', label: 'Resources', icon: Box },
+  { path: 'cost-analytics', label: 'Cost Analytics', icon: DollarSign },
+  { path: 'resource-utilization', label: 'Utilization', icon: Box },
   { path: 'whitelists', label: 'Whitelists', icon: Shield },
   { path: 'profile', label: 'Profile', icon: User },
   { path: 'onboarding', label: 'Settings', icon: Settings },

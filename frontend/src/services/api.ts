@@ -98,6 +98,45 @@ export class ApiService {
       headers,
     });
   }
+
+  // Cost Analytics APIs
+  async getCostTrend(startDate: string, endDate: string, groupBy: string = 'service') {
+    return this.request(`/analytics/cost-trend?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`);
+  }
+
+  async getCostDrivers(startDate: string, endDate: string) {
+    return this.request(`/analytics/cost-drivers?start_date=${startDate}&end_date=${endDate}`);
+  }
+
+  async getAnomalies(days: number = 30) {
+    return this.request(`/analytics/anomalies?days=${days}`);
+  }
+
+  // Resource Utilization APIs
+  async getUtilizationMetrics(timeRange: string = '7d') {
+    return this.request(`/analytics/utilization?time_range=${timeRange}`);
+  }
+
+  async getIdleResources(days: number = 7) {
+    return this.request(`/analytics/idle-resources?days=${days}`);
+  }
+
+  async getRightSizingRecommendations() {
+    return this.request('/analytics/right-sizing');
+  }
+
+  // Enhanced Dashboard APIs
+  async getDashboardMetrics() {
+    return this.request('/dashboard/metrics');
+  }
+
+  async getCostBreakdown() {
+    return this.request('/dashboard/cost-breakdown');
+  }
+
+  async getUtilizationSummary() {
+    return this.request('/dashboard/utilization-summary');
+  }
 }
 
 const api = new ApiService();

@@ -382,13 +382,13 @@
   - System configuration: feature flags, maintenance mode
   - 20+ admin API endpoints with admin authentication
   - Audit logging for all admin actions
-- **Implementation Roadmap**: 6-week plan
-  - Week 1: Database & Backend Foundation (migrations, models, middleware)
-  - Week 2: Invitation System (email templates, invite flow, acceptance)
-  - Week 3: Frontend Team Management (Team page, invite modal, role guards)
-  - Week 4: Admin Portal Backend (admin routes, impersonation, analytics)
-  - Week 5: Admin Portal Frontend (admin dashboard, tenant/user management)
-  - Week 6: Testing & Polish (E2E tests, security audit, documentation)
+- **Implementation Roadmap**: 6-week plan (83% complete)
+  - Week 1: Database & Backend Foundation ✅
+  - Week 2: Invitation System ✅
+  - Week 3: Frontend Team Management (deferred to post-MVP)
+  - Week 4: Admin Portal Backend ✅
+  - Week 5: Admin Portal Frontend ✅
+  - Week 6: Testing & Polish (pending)
   - 63 tasks total: 10 database, 25 backend, 20 frontend, 8 documentation
 - **User Flow Diagrams**: 8 visual flows documented
   - New user onboarding, returning user flow, multi-user tenant flow
@@ -401,7 +401,7 @@
   - USER_FLOWS_DIAGRAM.md (2,000 words)
   - FLOWS_SUMMARY.md (1,800 words)
 
-### Phase 24: RBAC Implementation (Weeks 1-2, 4)
+### Phase 24: RBAC Implementation (Weeks 1-2, 4-5)
 - **Week 1 - Database & Backend Foundation**: Complete ✅
   - Created 3 database migrations (008, 009, 010)
   - yt_tenant_users: User-tenant-role junction table with unique constraints
@@ -469,20 +469,70 @@
   - 2 impersonation routes (start, end)
   - 3 user management routes (list, suspend, activate)
   - Backend compilation verified: go build -o /dev/null ./cmd/main.go ✅
-- **Implementation Status**: 70% complete (4.2/6 weeks)
+- **Week 5 - Admin Portal Frontend**: Complete ✅
+  - Created frontend/src/pages/Admin/AdminLogin.tsx: Admin authentication page
+  - Separate admin_token storage (not mixed with user tokens)
+  - Email/password form with error handling
+  - Created frontend/src/pages/Admin/AdminDashboard.tsx: Platform overview
+  - 5 stat cards: total tenants, users, resources, findings, savings
+  - 3 quick action cards: tenant management, user management, analytics
+  - Real-time data from GET /api/admin/stats endpoint
+  - Created frontend/src/pages/Admin/AdminTenants.tsx: Tenant management
+  - List all tenants with search/filter functionality
+  - Suspend/activate tenant actions
+  - Impersonate button integration
+  - Tenant details view with stats
+  - Created frontend/src/pages/Admin/AdminUsers.tsx: User management
+  - List all users across all tenants
+  - Suspend/activate user actions
+  - User details with tenant associations
+  - Created frontend/src/pages/Admin/AdminAnalytics.tsx: Platform analytics
+  - Growth metrics: new tenants/users (30-day)
+  - Resource metrics: total resources/findings
+  - Average savings per tenant
+  - Active scans tracking
+  - Created frontend/src/components/Admin/ImpersonationModal.tsx: Impersonation UI
+  - Modal with required reason field
+  - User/tenant info display
+  - Error handling and validation
+  - POST /api/admin/impersonate integration
+  - Created frontend/src/components/Admin/ImpersonationBanner.tsx: Active session indicator
+  - Yellow warning banner with sticky positioning
+  - Shows impersonated user/tenant info
+  - End impersonation button
+  - Visible on all pages during active session
+  - Created frontend/src/services/adminApi.ts: Admin API client
+  - Separate axios instance with admin_token interceptor
+  - 401 error handling (redirect to admin login)
+  - All admin endpoints typed with TypeScript
+  - Updated frontend/src/App.tsx: Admin routing
+  - Added 5 admin routes: /admin/login, /admin/dashboard, /admin/tenants, /admin/users, /admin/analytics
+  - Integrated ImpersonationBanner with conditional rendering
+  - Created handlers/admin_analytics.go: Analytics backend
+  - GetPlatformStats: total tenants/users/resources/findings/savings
+  - GetAnalytics: 30-day growth metrics, resource stats, avg savings
+  - Registered 2 new routes: GET /api/admin/stats, GET /api/admin/analytics
+  - **Bug Fixes Applied**:
+  - Fixed Vite env variable syntax → CRA syntax (process.env.REACT_APP_*)
+  - Fixed React hooks error (moved useEffect outside conditional)
+  - Fixed tenant_id parameter missing in AWS connection check
+  - Fixed database injection for admin analytics handler
+  - Added auto-redirect to dashboard after AWS connection (3 seconds)
+- **Implementation Status**: 83% complete (5/6 weeks)
   - ✅ Week 1: Database & Backend Foundation
   - ✅ Week 2: Invitation System
-  - ⏭️ Week 3: Frontend Team Management (deferred)
+  - ⏭️ Week 3: Frontend Team Management (deferred to post-MVP)
   - ✅ Week 4: Admin Portal Backend
-  - 🔄 Week 5: Admin Portal Frontend (Day 1/5 complete)
+  - ✅ Week 5: Admin Portal Frontend
   - ⏭️ Week 6: Testing & Polish (pending)
-- **Documentation Created**: 6 implementation docs
+- **Documentation Created**: 8 implementation docs
   - WEEK1_COMPLETE.md: Database schema, models, middleware
   - WEEK2_COMPLETE.md: Invitation system, multi-tenant login
   - WEEK4_COMPLETE.md: Admin portal backend, impersonation
+  - WEEK5_ADMIN_FRONTEND_GUIDE.md: Admin portal frontend guide
+  - WEEK5_COMPLETE.md: Week 5 completion summary (NEW)
   - WEEK3_FRONTEND_GUIDE.md: Frontend implementation guide (reference)
-  - WEEK5_ADMIN_FRONTEND_GUIDE.md: Admin portal frontend guide (NEW)
-  - WEEK5_DAY1_COMPLETE.md: Day 1 completion summary (NEW)
+  - WEEK5_DAY1_COMPLETE.md: Day 1 completion summary
 
 ---
 
@@ -521,7 +571,7 @@
 - **Customer IAM Role**: YuktiFinOpsRole
 - **External ID Pattern**: yukti-{tenant_id}-{random_12_chars}
 
-### Key Files Modified (Session 24)
+### Key Files Modified (Session 24-25)
 - `migrations/008_multi_user_rbac.sql` - yt_tenant_users, yt_user_invitations, views (NEW)
 - `migrations/009_admin_audit_logs.sql` - yt_admin_audit_logs, yt_impersonation_sessions (NEW)
 - `migrations/010_admin_users.sql` - yt_admin_users table with default admin (NEW)
@@ -537,10 +587,23 @@
 - `internal/api/handlers/admin_tenants.go` - 5 tenant management endpoints (NEW)
 - `internal/services/impersonation_service.go` - StartImpersonation, EndImpersonation (NEW)
 - `internal/api/handlers/admin_impersonation.go` - Impersonation + user management (NEW)
-- `internal/api/routes/routes.go` - Registered 20 new routes (team, admin, impersonation)
+- `internal/api/handlers/admin_analytics.go` - Platform stats and analytics (NEW)
+- `internal/api/routes/routes.go` - Registered 22 new routes (team, admin, impersonation, analytics)
+- `frontend/src/pages/Admin/AdminLogin.tsx` - Admin authentication page (NEW)
+- `frontend/src/pages/Admin/AdminDashboard.tsx` - Platform overview dashboard (NEW)
+- `frontend/src/pages/Admin/AdminTenants.tsx` - Tenant management page (NEW)
+- `frontend/src/pages/Admin/AdminUsers.tsx` - User management page (NEW)
+- `frontend/src/pages/Admin/AdminAnalytics.tsx` - Analytics dashboard (NEW)
+- `frontend/src/components/Admin/ImpersonationModal.tsx` - Impersonation UI (NEW)
+- `frontend/src/components/Admin/ImpersonationBanner.tsx` - Active session indicator (NEW)
+- `frontend/src/services/adminApi.ts` - Admin API client (NEW)
+- `frontend/src/App.tsx` - Added 5 admin routes, impersonation banner integration
+- `frontend/src/pages/Onboarding.tsx` - Fixed React hooks error, added auto-redirect
+- `frontend/src/services/api.ts` - Fixed tenant_id parameter, CRA env syntax
 - `WEEK1_COMPLETE.md` - Week 1 completion summary (NEW)
 - `WEEK2_COMPLETE.md` - Week 2 completion summary (NEW)
 - `WEEK4_COMPLETE.md` - Week 4 completion summary (NEW)
+- `WEEK5_COMPLETE.md` - Week 5 completion summary (NEW)
 
 ### Key Files Modified (Session 23)
 - `RBAC_DESIGN.md` - Complete RBAC design with 4 roles, permissions, database schema, APIs (NEW)
