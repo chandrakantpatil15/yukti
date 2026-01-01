@@ -26,7 +26,7 @@ type Customer struct {
 	CompanyName     string           `json:"company_name"`
 	Email           string           `json:"email"`
 	OnboardingStatus OnboardingStatus `json:"onboarding_status"`
-	CurrentStep     OnboardingStep   `json:"current_step"`
+	OnboardingStep  OnboardingStep   `json:"onboarding_step"`
 	CreatedAt       time.Time        `json:"created_at"`
 	CompletedAt     *time.Time       `json:"completed_at,omitempty"`
 }

@@ -37,12 +37,6 @@ func connectGorm(databaseURL string) (*gorm.DB, error) {
 		&models.AWSPricing{},
 		&models.ResourceMetrics{},
 		&models.User{},
-		// Billing models
-		&models.BillingCustomer{},
-		&models.StripeEvent{},
-		&models.BillingInvoice{},
-		&models.BillingProductPrice{},
-		&models.BillingSubscription{},
 	)
 	if err != nil {
 		log.Printf("[ERROR] Database migration failed: %v", err)

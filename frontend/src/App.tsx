@@ -7,12 +7,15 @@ import HiddenCosts from './pages/HiddenCosts';
 import { Whitelists } from './pages/Whitelists';
 import Resources from './pages/Resources';
 import Onboarding from './pages/Onboarding';
-import SimpleOnboarding from './pages/SimpleOnboarding';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminBilling from './pages/Admin/AdminBilling';
 import TestAdmin from './pages/TestAdmin';
 import AuditLogs from './pages/AuditLogs';
 import Login from './pages/Auth/Login';
 import Signup from './pages/Auth/Signup';
+import Billing from './pages/Billing';
+import BillingUpgrade from './pages/BillingUpgrade';
+import BillingSuccess from './pages/BillingSuccess';
 import LogoutButton from './components/LogoutButton';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Navigation } from './components/Navigation/Navigation';
@@ -20,6 +23,9 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ProtectedRoute } from './components/Auth/ProtectedRoute';
 import { isAuthenticated } from './lib/auth';
+import { RoleProvider } from './contexts/RoleContext';
+import Team from './pages/Team';
+import AcceptInvite from './pages/AcceptInvite';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,7 +54,8 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
+          <RoleProvider>
+            <BrowserRouter>
             <Routes>
               {/* Public routes - redirect if already authenticated */}
               <Route
@@ -117,8 +124,36 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AppLayout>
-                      <SimpleOnboarding />
+                      <Onboarding />
                     </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/billing"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <Billing />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/billing/upgrade"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <BillingUpgrade />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/billing/success"
+                element={
+                  <ProtectedRoute>
+                    <BillingSuccess />
                   </ProtectedRoute>
                 }
               />
@@ -133,6 +168,16 @@ function App() {
                 }
               />
               <Route
+                path="/admin/billing"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AppLayout>
+                      <AdminBilling />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/audit-logs"
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
@@ -142,12 +187,25 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/team"
+                element={
+                  <ProtectedRoute allowedRoles={['owner', 'admin']}>
+                    <AppLayout>
+                      <Team />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              {/* Public route for accepting invitations */}
+              <Route path="/accept-invite" element={<AcceptInvite />} />
 
               {/* Default redirect */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
             <ReactQueryDevtools initialIsOpen={false} />
-          </BrowserRouter>
+            </BrowserRouter>
+          </RoleProvider>
         </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
@@ -165,9 +223,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     if (path.includes('/audit-logs')) return 'audit-logs';
     if (path.includes('/admin')) return 'admin';
     if (path.includes('/onboarding')) return 'onboarding';
+    if (path.includes('/billing')) return 'billing';
     if (path.includes('/hidden-costs')) return 'hidden-costs';
     if (path.includes('/resources')) return 'resources';
     if (path.includes('/whitelists')) return 'whitelists';
+    if (path.includes('/team')) return 'team';
     if (path.includes('/iac-generator')) return 'iac-generator';
     if (path.includes('/dashboard') || path === '/') return 'dashboard';
     return 'dashboard';

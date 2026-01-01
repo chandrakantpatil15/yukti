@@ -12,14 +12,15 @@ import (
 
 // User represents a user account in the system
 type User struct {
-	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	TenantID     int       `gorm:"not null;index:idx_users_tenant_email" json:"tenant_id"`
-	Email        string    `gorm:"type:text;not null;index:idx_users_tenant_email" json:"email"`
-	PasswordHash string    `gorm:"type:text;not null;column:password_hash" json:"-"`
-	Role         string    `gorm:"type:text;not null;check:role IN ('admin', 'editor', 'viewer')" json:"role"`
-	IsActive     bool      `gorm:"default:true;not null" json:"is_active"`
-	CreatedAt    time.Time `gorm:"default:now()" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"default:now()" json:"updated_at"`
+	ID            uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	TenantID      int       `gorm:"not null;index:idx_users_tenant_email" json:"tenant_id"`
+	Email         string    `gorm:"type:text;not null;index:idx_users_tenant_email" json:"email"`
+	PasswordHash  string    `gorm:"type:text;not null;column:password_hash" json:"-"`
+	Role          string    `gorm:"type:text;not null;check:role IN ('admin', 'editor', 'viewer')" json:"role"`
+	EmailVerified bool      `gorm:"default:false;not null;column:email_verified" json:"email_verified"`
+	IsActive      bool      `gorm:"default:true;not null" json:"is_active"`
+	CreatedAt     time.Time `gorm:"default:now()" json:"created_at"`
+	UpdatedAt     time.Time `gorm:"default:now()" json:"updated_at"`
 }
 
 // TableName specifies the table name for GORM
@@ -169,12 +170,29 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 func (r *UserRepository) GetUserByEmailTenantSQL(tenantID int, email string) (*User, error) {
 	var user User
 	err := r.db.QueryRow(`
-		SELECT id, tenant_id, email, password_hash, role, is_active, created_at, updated_at
+		SELECT id, tenant_id, email, password_hash, role, email_verified, is_active, created_at, updated_at
 		FROM yt_users
 		WHERE tenant_id = $1 AND email = $2 AND is_active = true
 	`, tenantID, email).Scan(
 		&user.ID, &user.TenantID, &user.Email, &user.PasswordHash,
-		&user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.Role, &user.EmailVerified, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetUserByEmailSQL retrieves a user by email only (email is unique across all tenants)
+func (r *UserRepository) GetUserByEmailSQL(email string) (*User, error) {
+	var user User
+	err := r.db.QueryRow(`
+		SELECT id, tenant_id, email, password_hash, role, email_verified, is_active, created_at, updated_at
+		FROM yt_users
+		WHERE email = $1 AND is_active = true
+	`, email).Scan(
+		&user.ID, &user.TenantID, &user.Email, &user.PasswordHash,
+		&user.Role, &user.EmailVerified, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err

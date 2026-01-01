@@ -1,4 +1,21 @@
 services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: yukti-redis
+    env_file:
+      - .env.ports
+    command: redis-server --requirepass ${REDIS_PASSWORD:-yukti123}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # Backend API
   backend:
     build:
@@ -11,6 +28,9 @@ services:
       DATABASE_URL: postgresql://yukti:yukti123@host.docker.internal:${POSTGRES_PORT:-5432}/yukti_finops?sslmode=disable
       PORT: ${BACKEND_PORT:-8081}
       JWT_SECRET: pfAsPNDzQc9j2rGEy4F+sJd0mP9IEEEhAZAZAblLf6Q=
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-yukti123}
       AWS_ACCESS_KEY_ID: 
       AWS_SECRET_ACCESS_KEY: 
       AWS_REGION: us-west-1
@@ -89,6 +109,7 @@ services:
       - ./monitoring/grafana:/etc/grafana/provisioning
 
 volumes:
+  redis_data:
   prometheus_data:
   grafana_data:
   ml_models:

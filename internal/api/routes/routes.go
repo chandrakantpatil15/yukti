@@ -15,6 +15,9 @@ import (
 
 func SetupRoutes(router *mux.Router, db *sql.DB) {
 	log.Printf("[INFO] Setting up API routes...")
+	
+	// Enable strict slash matching
+	router.StrictSlash(true)
 	// Middleware
 	log.Printf("[DEBUG] Initializing middleware...")
 	authMw := middleware.NewAuthMiddleware(db)
@@ -30,8 +33,9 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	adminHandler := handlers.NewAdminHandler(db)
 	customerHandler := handlers.NewCustomerHandler(db)
 	auditHandler := handlers.NewAuditHandler(db)
-	authHandler := handlers.NewAuthHandler(db)
+	authHandler := handlers.NewAuthHandler(db) // Use main auth handler
 	filterHandler := handlers.NewFilterHandler(db)
+	teamHandler := handlers.NewTeamHandler(db)
 	billingHandler, err := handlers.NewBillingHandler(db)
 	if err != nil {
 		log.Printf("[WARN] Failed to initialize billing handler: %v", err)
@@ -42,7 +46,7 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	whitelistService := whitelist.NewService(db)
 	whitelistHandler := handlers.NewWhitelistHandler(whitelistService)
 	mlProxyHandler := handlers.NewMLProxyHandler()
-	scanHandler := handlers.NewScanHandler()
+	scanHandler := handlers.NewScanHandler(db)
 
 	// Public routes
 	log.Printf("[DEBUG] Registering public routes...")
@@ -54,9 +58,12 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 
 	// Auth routes (public)
 	log.Printf("[DEBUG] Registering auth routes...")
-	router.HandleFunc("/api/v1/auth/signup", authHandler.Signup).Methods("POST")
-	router.HandleFunc("/api/v1/auth/login", authHandler.Login).Methods("POST")
-	router.HandleFunc("/api/v1/auth/logout", authHandler.Logout).Methods("POST")
+	router.HandleFunc("/api/v1/auth/signup", authHandler.Signup).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/v1/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/v1/auth/logout", authHandler.Logout).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/v1/auth/verify-email", authHandler.VerifyEmail).Methods("POST", "OPTIONS")
+	router.HandleFunc("/api/v1/auth/resend-code", authHandler.ResendOTP).Methods("POST", "OPTIONS")
+	log.Printf("[DEBUG] Auth routes registered: /api/v1/auth/signup, /api/v1/auth/login, /api/v1/auth/logout, /api/v1/auth/verify-email, /api/v1/auth/resend-code")
 	
 	// Auth routes (protected - JWT required)
 	router.Handle("/api/v1/auth/api-keys",
@@ -122,15 +129,46 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	router.Handle("/api/v1/filters/regions",
 		jwtAuthMw.RequireAuth(http.HandlerFunc(filterHandler.GetRegions))).Methods("GET")
 
+	// Team management routes (JWT protected)
+	log.Printf("[DEBUG] Registering team routes...")
+	router.Handle("/api/v1/team/members",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(teamHandler.ListMembers))).Methods("GET")
+	router.Handle("/api/v1/team/invitations",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(teamHandler.ListInvitations))).Methods("GET")
+	router.Handle("/api/v1/team/invite",
+		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.InviteUser)))).Methods("POST")
+	router.Handle("/api/v1/team/accept-invite",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(teamHandler.AcceptInvite))).Methods("POST")
+	router.HandleFunc("/api/v1/team/invite-details", teamHandler.GetInviteDetails).Methods("GET") // Public endpoint
+	router.Handle("/api/v1/team/members/{id}/role",
+		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.UpdateRole)))).Methods("PUT")
+	router.Handle("/api/v1/team/members/{id}",
+		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.RemoveUser)))).Methods("DELETE")
+	router.Handle("/api/v1/team/invitations/{id}/resend",
+		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.ResendInvite)))).Methods("POST")
+	router.Handle("/api/v1/team/invitations/{id}",
+		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.RevokeInvitation)))).Methods("DELETE")
+
 	// Billing routes (protected - JWT required)
 	if billingHandler != nil {
 		log.Printf("[DEBUG] Registering billing routes...")
-		router.Handle("/api/v1/billing/checkout-session",
-			jwtAuthMw.RequireAuth(http.HandlerFunc(billingHandler.CreateCheckoutSession))).Methods("POST")
-		router.Handle("/api/v1/billing/info",
-			jwtAuthMw.RequireAuth(http.HandlerFunc(billingHandler.GetBillingInfo))).Methods("GET")
-		// Webhook route (no auth - Stripe signature verification)
-		router.HandleFunc("/api/v1/webhooks/stripe", billingHandler.HandleStripeWebhook).Methods("POST")
+		// Admin billing management
+		router.Handle("/api/admin/billing",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.ListBillings))).Methods("GET")
+		router.Handle("/api/admin/billing",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.CreateBilling))).Methods("POST")
+		router.Handle("/api/admin/billing/stats",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.GetBillingStats))).Methods("GET")
+		router.Handle("/api/admin/billing/export",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.ExportBillings))).Methods("GET")
+		router.Handle("/api/admin/billing/{id}",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.GetBilling))).Methods("GET")
+		router.Handle("/api/admin/billing/{id}",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.UpdateBilling))).Methods("PUT")
+		router.Handle("/api/admin/billing/{id}",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.DeleteBilling))).Methods("DELETE")
+		router.Handle("/api/admin/billing/{id}/mark-paid",
+			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.MarkAsPaid))).Methods("POST")
 	}
 
 	log.Printf("[INFO] All routes registered successfully")

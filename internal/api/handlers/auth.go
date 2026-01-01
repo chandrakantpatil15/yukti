@@ -11,6 +11,7 @@ import (
 
 	"yukti/internal/models"
 	"yukti/internal/security"
+	"yukti/internal/services"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -18,9 +19,10 @@ import (
 )
 
 type AuthHandler struct {
-	db        *sql.DB
-	gormDB    *gorm.DB
+	db         *sql.DB
+	gormDB     *gorm.DB
 	jwtService *security.JWTService
+	otpService *services.OTPService
 }
 
 func NewAuthHandler(db *sql.DB) *AuthHandler {
@@ -43,6 +45,7 @@ func NewAuthHandler(db *sql.DB) *AuthHandler {
 		db:         db,
 		gormDB:     gormDB,
 		jwtService: security.NewJWTService(jwtSecret),
+		otpService: services.NewOTPService(db),
 	}
 }
 
@@ -58,6 +61,7 @@ type SignupResponse struct {
 	Success bool   `json:"success"`
 	UserID  string `json:"user_id,omitempty"`
 	TenantID int   `json:"tenant_id,omitempty"`
+	OTPCode string `json:"otp_code,omitempty"` // Only in dev mode
 	Message string `json:"message,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
@@ -186,20 +190,36 @@ func (h *AuthHandler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send OTP for email verification
+	otpCode, err := h.otpService.SendOTPAndGetCode(req.Email)
+	if err != nil {
+		log.Printf("[ERROR] Failed to send OTP: %v", err)
+		// Don't fail signup, just log the error
+	}
+
 	log.Printf("[INFO] Successfully created user %s for tenant %d", user.ID, tenantID)
-	json.NewEncoder(w).Encode(SignupResponse{
+	
+	// Return OTP code in dev mode only
+	response := SignupResponse{
 		Success:  true,
 		UserID:   user.ID.String(),
 		TenantID: tenantID,
-		Message:  "User created successfully",
-	})
+		Message:  "User created successfully. Please verify your email.",
+	}
+	
+	// Show OTP in dev mode (when JWT_SECRET is default)
+	if os.Getenv("JWT_SECRET") == "" {
+		response.OTPCode = otpCode
+		log.Printf("[DEV] OTP code for %s: %s", req.Email, otpCode)
+	}
+	
+	json.NewEncoder(w).Encode(response)
 }
 
 // LoginRequest represents the login request payload
 type LoginRequest struct {
-	TenantCode string `json:"tenant_code" validate:"required"`
-	Email      string `json:"email" validate:"required,email"`
-	Password   string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 // LoginResponse represents the login response
@@ -207,12 +227,12 @@ type LoginResponse struct {
 	Success   bool      `json:"success"`
 	Token     string    `json:"token,omitempty"`
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
-	User      *UserInfo `json:"user,omitempty"`
+	User      *UserInfoAuth `json:"user,omitempty"`
 	Error     string    `json:"error,omitempty"`
 }
 
-// UserInfo represents user information in login response
-type UserInfo struct {
+// UserInfoAuth represents user information in login response
+type UserInfoAuth struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
@@ -237,11 +257,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if req.TenantCode == "" || req.Email == "" || req.Password == "" {
+	if req.Email == "" || req.Password == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(LoginResponse{
 			Success: false,
-			Error:   "Tenant code, email, and password are required",
+			Error:   "Email and password are required",
 		})
 		return
 	}
@@ -249,41 +269,41 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Normalize email
 	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
 
-	// Get tenant ID from tenant code
-	var tenantID int
-	var tenantStatus string
-	err := h.db.QueryRow(`
-		SELECT id, status FROM yt_tenants WHERE tenant_code = $1
-	`, req.TenantCode).Scan(&tenantID, &tenantStatus)
+	// Get user by email (email is unique across all tenants)
+	userRepo := models.NewUserRepository(h.db)
+	user, err := userRepo.GetUserByEmailSQL(req.Email)
 	if err != nil {
-		log.Printf("[WARN] Invalid tenant code: %s", req.TenantCode)
+		log.Printf("[WARN] User not found or inactive: %s", req.Email)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(LoginResponse{
 			Success: false,
-			Error:   "Invalid tenant code or email",
+			Error:   "Invalid email or password",
 		})
 		return
 	}
 
-	if tenantStatus != "active" {
-		log.Printf("[WARN] Tenant %d is not active (status: %s)", tenantID, tenantStatus)
+	// Check tenant status
+	var tenantStatus string
+	err = h.db.QueryRow(`
+		SELECT status FROM yt_tenants WHERE id = $1
+	`, user.TenantID).Scan(&tenantStatus)
+	if err != nil || tenantStatus != "active" {
+		log.Printf("[WARN] Tenant %d is not active (status: %s)", user.TenantID, tenantStatus)
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(LoginResponse{
 			Success: false,
-			Error:   "Tenant account is suspended",
+			Error:   "Account is suspended",
 		})
 		return
 	}
 
-	// Get user by email and tenant
-	userRepo := models.NewUserRepository(h.db)
-	user, err := userRepo.GetUserByEmailTenantSQL(tenantID, req.Email)
-	if err != nil {
-		log.Printf("[WARN] User not found or inactive: %s in tenant %d", req.Email, tenantID)
-		w.WriteHeader(http.StatusUnauthorized)
+	// Check if email is verified
+	if !user.EmailVerified {
+		log.Printf("[WARN] Email not verified for user %s", req.Email)
+		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(LoginResponse{
 			Success: false,
-			Error:   "Invalid tenant code or email",
+			Error:   "Please verify your email before logging in",
 		})
 		return
 	}
@@ -294,17 +314,21 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(LoginResponse{
 			Success: false,
-			Error:   "Invalid tenant code or email",
+			Error:   "Invalid email or password",
 		})
 		return
 	}
+
+	// Get tenant code for JWT
+	var tenantCode string
+	h.db.QueryRow("SELECT tenant_code FROM yt_tenants WHERE id = $1", user.TenantID).Scan(&tenantCode)
 
 	// Generate JWT token
 	expiresIn := 24 * time.Hour // 24 hours
 	token, err := h.jwtService.GenerateToken(
 		user.ID.String(),
 		user.TenantID,
-		req.TenantCode,
+		tenantCode,
 		user.Email,
 		user.Role,
 		[]string{"read", "write"}, // Default scopes
@@ -320,12 +344,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[INFO] User %s logged in successfully for tenant %d", req.Email, tenantID)
+	log.Printf("[INFO] User %s logged in successfully for tenant %d", req.Email, user.TenantID)
 	json.NewEncoder(w).Encode(LoginResponse{
 		Success:   true,
 		Token:     token,
 		ExpiresAt: time.Now().Add(expiresIn),
-		User: &UserInfo{
+		User: &UserInfoAuth{
 			ID:       user.ID.String(),
 			Email:    user.Email,
 			Role:     user.Role,
@@ -465,3 +489,190 @@ func generateTenantCode(companyName string) string {
 	return code + "-" + randomSuffix
 }
 
+
+// VerifyEmailRequest represents email verification request
+type VerifyEmailRequest struct {
+	Email string `json:"email" validate:"required,email"`
+	Code  string `json:"code" validate:"required"`
+}
+
+// VerifyEmailResponse represents email verification response
+type VerifyEmailResponse struct {
+	Success   bool          `json:"success"`
+	Token     string        `json:"token,omitempty"`
+	ExpiresAt time.Time     `json:"expires_at,omitempty"`
+	User      *UserInfoAuth `json:"user,omitempty"`
+	Error     string        `json:"error,omitempty"`
+}
+
+// VerifyEmail handles email verification with OTP
+// POST /api/v1/auth/verify-email
+func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[INFO] VerifyEmail request from IP: %s", r.RemoteAddr)
+	w.Header().Set("Content-Type", "application/json")
+
+	var req VerifyEmailRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[ERROR] Failed to decode verify email request: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(VerifyEmailResponse{
+			Success: false,
+			Error:   "Invalid request format",
+		})
+		return
+	}
+
+	// Normalize email
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Verify OTP
+	err := h.otpService.VerifyOTP(req.Email, req.Code)
+	if err != nil {
+		log.Printf("[WARN] OTP verification failed for %s: %v", req.Email, err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(VerifyEmailResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	// Mark email as verified
+	_, err = h.db.Exec(`
+		UPDATE yt_users 
+		SET email_verified = true, updated_at = NOW()
+		WHERE email = $1
+	`, req.Email)
+	if err != nil {
+		log.Printf("[ERROR] Failed to update email_verified: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(VerifyEmailResponse{
+			Success: false,
+			Error:   "Failed to verify email",
+		})
+		return
+	}
+
+	// Get user details
+	userRepo := models.NewUserRepository(h.db)
+	user, err := userRepo.GetUserByEmailSQL(req.Email)
+	if err != nil {
+		log.Printf("[ERROR] Failed to get user after verification: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(VerifyEmailResponse{
+			Success: false,
+			Error:   "Email verified but failed to generate token",
+		})
+		return
+	}
+
+	// Get tenant code for JWT
+	var tenantCode string
+	h.db.QueryRow("SELECT tenant_code FROM yt_tenants WHERE id = $1", user.TenantID).Scan(&tenantCode)
+
+	// Generate JWT token
+	expiresIn := 24 * time.Hour
+	token, err := h.jwtService.GenerateToken(
+		user.ID.String(),
+		user.TenantID,
+		tenantCode,
+		user.Email,
+		user.Role,
+		[]string{"read", "write"},
+		expiresIn,
+	)
+	if err != nil {
+		log.Printf("[ERROR] Failed to generate token: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(VerifyEmailResponse{
+			Success: false,
+			Error:   "Email verified but failed to generate token",
+		})
+		return
+	}
+
+	log.Printf("[INFO] Email verified successfully for %s", req.Email)
+	json.NewEncoder(w).Encode(VerifyEmailResponse{
+		Success:   true,
+		Token:     token,
+		ExpiresAt: time.Now().Add(expiresIn),
+		User: &UserInfoAuth{
+			ID:       user.ID.String(),
+			Email:    user.Email,
+			Role:     user.Role,
+			TenantID: user.TenantID,
+		},
+	})
+}
+
+// ResendOTPRequest represents resend OTP request
+type ResendOTPRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResendOTPResponse represents resend OTP response
+type ResendOTPResponse struct {
+	Success bool   `json:"success"`
+	OTPCode string `json:"otp_code,omitempty"` // Only in dev mode
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// ResendOTP handles OTP resend
+// POST /api/v1/auth/resend-code
+func (h *AuthHandler) ResendOTP(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[INFO] ResendOTP request from IP: %s", r.RemoteAddr)
+	w.Header().Set("Content-Type", "application/json")
+
+	var req ResendOTPRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[ERROR] Failed to decode resend OTP request: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(ResendOTPResponse{
+			Success: false,
+			Error:   "Invalid request format",
+		})
+		return
+	}
+
+	// Normalize email
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Check if user exists
+	var exists bool
+	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM yt_users WHERE email = $1)", req.Email).Scan(&exists)
+	if err != nil || !exists {
+		log.Printf("[WARN] User not found for resend OTP: %s", req.Email)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ResendOTPResponse{
+			Success: false,
+			Error:   "User not found",
+		})
+		return
+	}
+
+	// Send new OTP
+	otpCode, err := h.otpService.SendOTPAndGetCode(req.Email)
+	if err != nil {
+		log.Printf("[ERROR] Failed to resend OTP: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ResendOTPResponse{
+			Success: false,
+			Error:   "Failed to send OTP",
+		})
+		return
+	}
+
+	response := ResendOTPResponse{
+		Success: true,
+		Message: "OTP sent successfully",
+	}
+
+	// Show OTP in dev mode
+	if os.Getenv("JWT_SECRET") == "" {
+		response.OTPCode = otpCode
+		log.Printf("[DEV] Resent OTP code for %s: %s", req.Email, otpCode)
+	}
+
+	json.NewEncoder(w).Encode(response)
+}

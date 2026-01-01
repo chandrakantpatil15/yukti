@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
-	"yukti/internal/database"
 	"yukti/internal/models"
 )
 
@@ -14,14 +13,12 @@ type BillingService struct {
 }
 
 // NewBillingService creates a new billing service
-func NewBillingService() *BillingService {
-	return &BillingService{
-		db: database.GetDB(),
-	}
+func NewBillingService(db *sql.DB) *BillingService {
+	return &BillingService{db: db}
 }
 
 // ListBillings returns paginated list of billing records
-func (s *BillingService) ListBillings(page, limit int, status, tenantID string) (*models.BillingListResponse, error) {
+func (s *BillingService) ListBillings(page, limit int, status, tenantID string) ([]models.Billing, int, error) {
 	offset := (page - 1) * limit
 	
 	query := `
@@ -56,7 +53,7 @@ func (s *BillingService) ListBillings(page, limit int, status, tenantID string) 
 	
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 	
@@ -70,7 +67,7 @@ func (s *BillingService) ListBillings(page, limit int, status, tenantID string) 
 			&b.CompanyName, &b.Email,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		billings = append(billings, b)
 	}
@@ -87,15 +84,10 @@ func (s *BillingService) ListBillings(page, limit int, status, tenantID string) 
 	var totalCount int
 	err = s.db.QueryRow(countQuery).Scan(&totalCount)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	
-	return &models.BillingListResponse{
-		Billings:   billings,
-		TotalCount: totalCount,
-		Page:       page,
-		Limit:      limit,
-	}, nil
+	return billings, totalCount, nil
 }
 
 // GetBilling returns a single billing record by ID

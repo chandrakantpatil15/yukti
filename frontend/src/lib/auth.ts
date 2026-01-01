@@ -3,7 +3,7 @@
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'editor' | 'viewer';
+  role: 'owner' | 'admin' | 'editor' | 'viewer';
   tenant_id: number;
 }
 
@@ -81,7 +81,7 @@ export function setToken(token: string): void {
     const user: User = {
       id: payload.user_id,
       email: payload.email,
-      role: payload.role as 'admin' | 'editor' | 'viewer',
+      role: payload.role as 'owner' | 'admin' | 'editor' | 'viewer',
       tenant_id: payload.tenant_id,
     };
     localStorage.setItem(USER_KEY, JSON.stringify(user));

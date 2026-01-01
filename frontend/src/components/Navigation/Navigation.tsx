@@ -11,7 +11,9 @@ import {
   LogOut,
   ChevronDown,
   Menu,
-  X
+  X,
+  CreditCard,
+  Users
 } from 'lucide-react';
 import { getCurrentUser } from '../../lib/auth';
 import LogoutButton from '../LogoutButton';
@@ -49,6 +51,17 @@ const navItems: NavItem[] = [
     path: 'whitelists',
     label: 'Whitelists',
     icon: <Shield className="w-5 h-5" />,
+  },
+  {
+    path: 'billing',
+    label: 'Billing',
+    icon: <CreditCard className="w-5 h-5" />,
+  },
+  {
+    path: 'team',
+    label: 'Team',
+    icon: <Users className="w-5 h-5" />,
+    roles: ['owner', 'admin'],
   },
   {
     path: 'profile',

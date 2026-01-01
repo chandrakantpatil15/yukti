@@ -27,17 +27,17 @@ func (s *Service) CreateCustomer(ctx context.Context, companyName, email string)
 		CompanyName:      companyName,
 		Email:            email,
 		OnboardingStatus: StatusPending,
-		CurrentStep:      StepAWSConnection,
+		OnboardingStep:   StepAWSConnection,
 		CreatedAt:        time.Now(),
 	}
 
 	query := `
-		INSERT INTO yt_customers (id, tenant_id, company_name, email, onboarding_status, current_step, created_at)
+		INSERT INTO yt_customers (id, tenant_id, company_name, email, onboarding_status, onboarding_step, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := s.db.ExecContext(ctx, query,
 		customer.ID, customer.TenantID, customer.CompanyName, customer.Email,
-		customer.OnboardingStatus, customer.CurrentStep, customer.CreatedAt,
+		customer.OnboardingStatus, customer.OnboardingStep, customer.CreatedAt,
 	)
 
 	return customer, err
@@ -88,7 +88,7 @@ func (s *Service) SaveMetricsIntegration(ctx context.Context, integration *Metri
 }
 
 func (s *Service) UpdateOnboardingStep(ctx context.Context, tenantID string, step OnboardingStep) error {
-	query := `UPDATE yt_customers SET current_step = $1 WHERE tenant_id = $2`
+	query := `UPDATE yt_customers SET onboarding_step = $1 WHERE tenant_id = $2`
 	_, err := s.db.ExecContext(ctx, query, step, tenantID)
 	return err
 }
@@ -102,13 +102,13 @@ func (s *Service) CompleteOnboarding(ctx context.Context, tenantID string) error
 
 func (s *Service) GetCustomer(ctx context.Context, tenantID string) (*Customer, error) {
 	query := `
-		SELECT id, tenant_id, company_name, email, onboarding_status, current_step, created_at, completed_at
+		SELECT id, tenant_id, company_name, email, onboarding_status, onboarding_step, created_at, completed_at
 		FROM yt_customers WHERE tenant_id = $1
 	`
 	var customer Customer
 	err := s.db.QueryRowContext(ctx, query, tenantID).Scan(
 		&customer.ID, &customer.TenantID, &customer.CompanyName, &customer.Email,
-		&customer.OnboardingStatus, &customer.CurrentStep, &customer.CreatedAt, &customer.CompletedAt,
+		&customer.OnboardingStatus, &customer.OnboardingStep, &customer.CreatedAt, &customer.CompletedAt,
 	)
 	return &customer, err
 }

@@ -104,6 +104,58 @@ export class ApiService {
     return this.request(`/analytics/cost-trend?start_date=${startDate}&end_date=${endDate}&group_by=${groupBy}`);
   }
 
+  // Billing APIs
+  async getBillingInfo() {
+    return this.request('/billing/info');
+  }
+
+  async createCheckoutSession(planSlug: string, currency: string = 'USD') {
+    return this.post('/billing/checkout-session', {
+      plan_slug: planSlug,
+      currency: currency,
+    });
+  }
+
+  // Team Management APIs
+  async getTeamMembers() {
+    return this.request('/team/members');
+  }
+
+  async getTeamInvitations() {
+    return this.request('/team/invitations');
+  }
+
+  async inviteUser(email: string, role: string) {
+    return this.post('/team/invite', {
+      email,
+      role,
+    });
+  }
+
+  async acceptInvite(token: string) {
+    return this.post('/team/accept-invite', { token });
+  }
+
+  async getInviteDetails(token: string) {
+    return this.get(`/team/invite-details?token=${token}`);
+  }
+
+  async updateMemberRole(memberId: string, role: string) {
+    return this.put(`/team/members/${memberId}/role`, { role });
+  }
+
+  async removeMember(memberId: string) {
+    return this.delete(`/team/members/${memberId}`);
+  }
+
+  async resendInvitation(invitationId: string) {
+    return this.post(`/team/invitations/${invitationId}/resend`, {});
+  }
+
+  async revokeInvitation(invitationId: string) {
+    return this.delete(`/team/invitations/${invitationId}`);
+  }
+
   async getCostDrivers(startDate: string, endDate: string) {
     return this.request(`/analytics/cost-drivers?start_date=${startDate}&end_date=${endDate}`);
   }
@@ -136,6 +188,19 @@ export class ApiService {
 
   async getUtilizationSummary() {
     return this.request('/dashboard/utilization-summary');
+  }
+
+  // Auth endpoints
+  async signup(email: string, password: string, companyName?: string) {
+    return this.post('/auth/signup', { email, password, company_name: companyName });
+  }
+
+  async verifyEmail(email: string, code: string) {
+    return this.post('/auth/verify-email', { email, code });
+  }
+
+  async resendCode(email: string) {
+    return this.post('/auth/resend-code', { email });
   }
 }
 

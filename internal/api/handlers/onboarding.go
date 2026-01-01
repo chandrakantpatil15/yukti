@@ -299,12 +299,12 @@ func (h *OnboardingHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	progress := calculateProgress(customer.CurrentStep)
-	message := getStepMessage(customer.CurrentStep)
+	progress := calculateProgress(customer.OnboardingStep)
+	message := getStepMessage(customer.OnboardingStep)
 
 	response := OnboardingStatusResponse{
 		Status:      string(customer.OnboardingStatus),
-		CurrentStep: string(customer.CurrentStep),
+		CurrentStep: string(customer.OnboardingStep),
 		Progress:    progress,
 		Message:     message,
 	}

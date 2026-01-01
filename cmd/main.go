@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"yukti/internal/api"
+	"yukti/internal/cache"
 	"yukti/internal/config"
 	"yukti/internal/database"
 )
@@ -23,15 +25,39 @@ func main() {
 	log.Printf("[INFO] Secrets loaded successfully")
 	
 	log.Printf("[INFO] Connecting to database...")
-	_, err := database.Connect(cfg.DatabaseURL)
+	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("[FATAL] Failed to connect to database: %v", err)
 	}
-	defer database.Close()
+	defer db.Close()
 	log.Printf("[INFO] Database connection established")
 
+	log.Printf("[INFO] Connecting to Redis...")
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+	redisPassword := os.Getenv("REDIS_PASSWORD")
+	if redisPassword == "" {
+		redisPassword = "yukti123"
+	}
+	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+	_ = cache.NewRedisCache(redisAddr, redisPassword, 0)
+	log.Printf("[INFO] Redis connection established at %s", redisAddr)
+
+	log.Printf("[INFO] Initializing cache services...")
+	_ = cache.NewSessionCache(nil)
+	_ = cache.NewOTPCache(nil)
+	_ = cache.NewDashboardCache(nil)
+	_ = cache.NewRateLimiter(nil)
+	log.Printf("[INFO] Cache services initialized")
+
 	log.Printf("[INFO] Initializing API server...")
-	server := api.NewServer(database.DB)
+	server := api.NewServer(db)
 	
 	port := os.Getenv("PORT")
 	if port == "" {

@@ -1,0 +1,66 @@
+YUKTI FINOPS - UI TESTING GUIDE
+================================
+
+FRONTEND URL: http://localhost:3000
+BACKEND URL: http://localhost:8081
+
+CURRENT STATUS:
+===============
+✅ Frontend running on port 3000
+✅ Backend running on port 8081
+✅ Database running
+❌ Signup has error: "column name of relation yt_customers does not exist"
+
+TEST SIGNUP FLOW:
+=================
+
+1. Open browser: http://localhost:3000/signup
+
+2. Fill in the form:
+   - Email: test@example.com
+   - Password: Test1234!
+   - Company Name: Test Company (optional)
+
+3. Click "Create account"
+
+4. Expected behavior:
+   - Should show OTP code in green box (dev mode)
+   - Should show verification form
+   
+5. Actual behavior:
+   - Will show error (backend failing)
+
+WHAT TO CHECK:
+==============
+
+1. Open browser console (F12)
+   - Check for any JavaScript errors
+   - Check Network tab for API calls
+
+2. Check backend logs:
+   docker-compose logs -f backend
+
+3. Look for the error:
+   "column name of relation yt_customers does not exist"
+
+NEXT STEPS:
+===========
+
+Once you see the error in the UI:
+1. Take a screenshot
+2. Check browser console
+3. Check backend logs
+4. We'll fix the "name" column issue together
+
+The issue is somewhere in the code trying to insert a "name" field
+into yt_customers table, but that column doesn't exist.
+
+The table has: id, tenant_id, company_name, email, onboarding_status, 
+onboarding_step, created_at, completed_at
+
+NO "name" column!
+
+BROWSER TESTING:
+================
+Open: http://localhost:3000/signup
+Try to signup and let me know what you see!

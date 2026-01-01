@@ -8,7 +8,6 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 
 const loginSchema = z.object({
-  tenant_code: z.string().min(1, 'Tenant code is required'),
   email: z.string().email('Invalid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
@@ -73,7 +72,7 @@ export const Login: React.FC = () => {
             Sign in to Yukti
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your tenant code, email, and password
+            Enter your email and password
           </p>
         </div>
 
@@ -86,23 +85,6 @@ export const Login: React.FC = () => {
 
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="tenant_code" className="sr-only">
-                Tenant Code
-              </label>
-              <Input
-                id="tenant_code"
-                type="text"
-                autoComplete="organization"
-                placeholder="Tenant Code"
-                {...register('tenant_code')}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              />
-              {errors.tenant_code && (
-                <p className="mt-1 text-sm text-red-600">{errors.tenant_code.message}</p>
-              )}
-            </div>
-
-            <div>
               <label htmlFor="email" className="sr-only">
                 Email address
               </label>
@@ -112,7 +94,7 @@ export const Login: React.FC = () => {
                 autoComplete="email"
                 placeholder="Email address"
                 {...register('email')}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
