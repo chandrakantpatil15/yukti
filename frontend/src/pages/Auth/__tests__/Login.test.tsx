@@ -9,7 +9,7 @@ import Login from '../Login';
 
 // Mock API server
 const server = setupServer(
-  rest.post('http://localhost:8080/api/v1/auth/login', (req, res, ctx) => {
+  rest.post('http://localhost:8081/api/v1/auth/login', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
@@ -122,7 +122,7 @@ describe('Login Component', () => {
 
   test('handles login error', async () => {
     server.use(
-      rest.post('http://localhost:8080/api/v1/auth/login', (req, res, ctx) => {
+      rest.post('http://localhost:8081/api/v1/auth/login', (req, res, ctx) => {
         return res(
           ctx.status(401),
           ctx.json({

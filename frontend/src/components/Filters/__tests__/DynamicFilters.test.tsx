@@ -16,7 +16,7 @@ global.localStorage = localStorageMock as any;
 
 // Mock API server
 const server = setupServer(
-  rest.get('http://localhost:8080/api/v1/filters/resource-types', (req, res, ctx) => {
+  rest.get('http://localhost:8081/api/v1/filters/resource-types', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
@@ -27,7 +27,7 @@ const server = setupServer(
       })
     );
   }),
-  rest.get('http://localhost:8080/api/v1/filters/tags', (req, res, ctx) => {
+  rest.get('http://localhost:8081/api/v1/filters/tags', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
@@ -44,7 +44,7 @@ const server = setupServer(
       })
     );
   }),
-  rest.get('http://localhost:8080/api/v1/filters/services', (req, res, ctx) => {
+  rest.get('http://localhost:8081/api/v1/filters/services', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
@@ -55,7 +55,7 @@ const server = setupServer(
       })
     );
   }),
-  rest.get('http://localhost:8080/api/v1/filters/regions', (req, res, ctx) => {
+  rest.get('http://localhost:8081/api/v1/filters/regions', (req, res, ctx) => {
     return res(
       ctx.json({
         success: true,
