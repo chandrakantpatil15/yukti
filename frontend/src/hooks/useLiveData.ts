@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Resource } from '../types';
 
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8081/api/live';
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8080/api/live';
 
 export const useLiveInstances = () => {
   return useQuery({

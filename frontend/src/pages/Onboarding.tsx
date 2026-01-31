@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { getCurrentUser } from '../lib/auth';
 
 const Onboarding: React.FC = () => {
   const [step, setStep] = useState(1);
@@ -27,7 +28,23 @@ const Onboarding: React.FC = () => {
 
     try {
       console.log('Connecting AWS with:', { awsAccountId, roleArn });
-      const data = await api.connectAWS(awsAccountId, roleArn, 'yukti-secure-access');
+      // Basic client-side sanitization/validation to avoid common mistakes
+      const user = getCurrentUser();
+      const tenantId = user ? String(user.tenant_id) : '';
+
+      const account = (awsAccountId || '').trim().replace(/\D/g, '');
+      if (account.length !== 12) {
+        throw new Error('AWS Account ID must be 12 digits');
+      }
+
+      // Normalize ARN: collapse accidental duplicate prefix like "arn: arn:aws..."
+      let arn = (roleArn || '').trim();
+      arn = arn.replace(/arn:\s*arn:/i, 'arn:');
+      if (!arn.toLowerCase().startsWith('arn:aws:iam::')) {
+        throw new Error('Invalid IAM Role ARN. Expected format: arn:aws:iam::123456789012:role/RoleName');
+      }
+
+      const data = await api.connectAWS(tenantId, account, arn, 'yukti-secure-access');
       console.log('AWS connection response:', data);
 
       if (data.verified) {

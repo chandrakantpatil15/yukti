@@ -186,6 +186,51 @@ func (h *BillingHandler) GetBillingStats(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(stats)
 }
 
+// GetBillingInfo - GET /api/v1/billing/info (tenant-scoped)
+func (h *BillingHandler) GetBillingInfo(w http.ResponseWriter, r *http.Request) {
+	// Try header first, then query param
+	tenantID := r.Header.Get("X-Tenant-ID")
+	if tenantID == "" {
+		tenantID = r.URL.Query().Get("tenant_id")
+	}
+
+	if tenantID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "tenant_id required",
+		})
+		return
+	}
+
+	// Use existing ListBillings to fetch invoices for tenant
+	billings, _, err := h.billingService.ListBillings(1, 50, "", tenantID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   "Failed to fetch billing info",
+		})
+		return
+	}
+
+	// Minimal response compatible with frontend expected shape
+	resp := map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"subscription_tier": "FREE",
+			"trial_ends_at":     nil,
+			"subscription":      nil,
+			"invoices":          billings,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 // ExportBillings - GET /api/admin/billing/export
 func (h *BillingHandler) ExportBillings(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()

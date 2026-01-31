@@ -19,7 +19,7 @@ func NewService(db *sql.DB) *Service {
 
 func (s *Service) CreateWhitelist(ctx context.Context, tenantID, userEmail string, req CreateWhitelistRequest) (*Whitelist, error) {
 	costImpact, _ := s.estimateCostImpact(ctx, tenantID, req)
-	
+
 	status := StatusActive
 	if costImpact > 1000.00 {
 		status = StatusPendingApproval
@@ -94,7 +94,7 @@ func (s *Service) ListWhitelists(ctx context.Context, tenantID string) ([]Whitel
 		SELECT id, tenant_id, whitelist_type, resource_arn, reason, 
 		       cost_impact_monthly, created_by, created_at, expires_at, status
 		FROM yt_whitelists
-		WHERE tenant_id = $1
+		WHERE tenant_id = $1 AND status != 'revoked'
 		ORDER BY created_at DESC
 	`
 

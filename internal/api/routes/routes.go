@@ -15,7 +15,7 @@ import (
 
 func SetupRoutes(router *mux.Router, db *sql.DB) {
 	log.Printf("[INFO] Setting up API routes...")
-	
+
 	// Enable strict slash matching
 	router.StrictSlash(true)
 	// Middleware
@@ -36,6 +36,8 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	authHandler := handlers.NewAuthHandler(db) // Use main auth handler
 	filterHandler := handlers.NewFilterHandler(db)
 	teamHandler := handlers.NewTeamHandler(db)
+	// Sync status handler
+	syncHandler := handlers.NewSyncHandler(db)
 	billingHandler, err := handlers.NewBillingHandler(db)
 	if err != nil {
 		log.Printf("[WARN] Failed to initialize billing handler: %v", err)
@@ -64,7 +66,7 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	router.HandleFunc("/api/v1/auth/verify-email", authHandler.VerifyEmail).Methods("POST", "OPTIONS")
 	router.HandleFunc("/api/v1/auth/resend-code", authHandler.ResendOTP).Methods("POST", "OPTIONS")
 	log.Printf("[DEBUG] Auth routes registered: /api/v1/auth/signup, /api/v1/auth/login, /api/v1/auth/logout, /api/v1/auth/verify-email, /api/v1/auth/resend-code")
-	
+
 	// Auth routes (protected - JWT required)
 	router.Handle("/api/v1/auth/api-keys",
 		jwtAuthMw.RequireAuth(middleware.RequireRole("admin")(http.HandlerFunc(authHandler.CreateAPIKey)))).Methods("POST")
@@ -79,23 +81,31 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	// Customer routes
 	log.Printf("[DEBUG] Registering customer routes...")
 	router.HandleFunc("/api/customers", customerHandler.CreateCustomer).Methods("POST")
-	router.Handle("/api/customers/dashboard", tenantIsolation.ValidateTenant(http.HandlerFunc(customerHandler.GetDashboard))).Methods("GET")
-	router.Handle("/api/customers/findings", tenantIsolation.ValidateTenant(http.HandlerFunc(customerHandler.GetFindings))).Methods("GET")
+	// Require JWT auth so tenant info is available in context for customer handlers
+	router.Handle("/api/customers/dashboard", jwtAuthMw.RequireAuth(tenantIsolation.ValidateTenant(http.HandlerFunc(customerHandler.GetDashboard)))).Methods("GET")
+	router.Handle("/api/customers/findings", jwtAuthMw.RequireAuth(tenantIsolation.ValidateTenant(http.HandlerFunc(customerHandler.GetFindings)))).Methods("GET")
 
 	// Onboarding routes
 	log.Printf("[DEBUG] Registering onboarding routes...")
 	router.HandleFunc("/api/onboarding/customer", onboardingHandler.CreateCustomer).Methods("POST")
-	router.HandleFunc("/api/onboarding/aws", onboardingHandler.ConfigureAWS).Methods("POST")
+	// Allow GET to retrieve AWS connection (handler checks method) and POST to configure
+	router.HandleFunc("/api/onboarding/aws", onboardingHandler.ConfigureAWS).Methods("GET", "POST", "OPTIONS")
 	router.HandleFunc("/api/onboarding/metrics", onboardingHandler.ConfigureMetrics).Methods("POST")
 	router.HandleFunc("/api/onboarding/status", onboardingHandler.GetStatus).Methods("GET")
 
 	// Protected routes
 	log.Printf("[DEBUG] Registering protected routes...")
+	// Backwards-compatible public resources endpoint (accepts X-Tenant-ID header)
+	router.HandleFunc("/api/resources", resourceHandler.ListResources).Methods("GET")
 	router.Handle("/api/v1/resources",
-		rateLimiter.Limit(authMw.TenantAuth(http.HandlerFunc(resourceHandler.ListResources)))).Methods("GET")
+		jwtAuthMw.RequireAuth(http.HandlerFunc(resourceHandler.ListResources))).Methods("GET")
+
+	// Resource details endpoint
+	router.Handle("/api/v1/resources/{resourceId}",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(resourceHandler.GetResourceDetails))).Methods("GET")
 
 	router.Handle("/api/v1/resources/stats",
-		rateLimiter.Limit(authMw.TenantAuth(http.HandlerFunc(resourceHandler.GetResourceStats)))).Methods("GET")
+		jwtAuthMw.RequireAuth(http.HandlerFunc(resourceHandler.GetResourceStats))).Methods("GET")
 
 	router.Handle("/api/v1/recommendations",
 		rateLimiter.Limit(authMw.TenantAuth(http.HandlerFunc(recommendationHandler.ListRecommendations)))).Methods("GET")
@@ -105,16 +115,20 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	router.Handle("/api/v1/ml/anomaly-detect", rateLimiter.Limit(http.HandlerFunc(mlProxyHandler.AnomalyDetect))).Methods("POST")
 	router.Handle("/api/v1/ml/forecast", rateLimiter.Limit(http.HandlerFunc(mlProxyHandler.Forecast))).Methods("POST")
 
+	// Sync status (available to authenticated users)
+	router.Handle("/api/internal/sync/status", jwtAuthMw.RequireAuth(http.HandlerFunc(syncHandler.GetStatus))).Methods("GET")
+
 	// Scan orchestration (stub)
 	log.Printf("[DEBUG] Registering scan routes...")
-	router.HandleFunc("/api/scan", scanHandler.TriggerScan).Methods("POST")
+	// Protect scan routes with JWT auth so tenant ID is available in context
+	router.Handle("/api/scan", jwtAuthMw.RequireAuth(http.HandlerFunc(scanHandler.TriggerScan))).Methods("POST")
+	router.Handle("/api/scan/status", jwtAuthMw.RequireAuth(http.HandlerFunc(scanHandler.GetScanStatus))).Methods("GET")
 
-	// Whitelist routes (tenant-scoped)
+	// Whitelist routes (JWT protected)
 	log.Printf("[DEBUG] Registering whitelist routes...")
-	router.Handle("/api/whitelists", tenantIsolation.ValidateTenant(http.HandlerFunc(whitelistHandler.ListWhitelists))).Methods("GET")
-	router.Handle("/api/whitelists", tenantIsolation.ValidateTenant(http.HandlerFunc(whitelistHandler.CreateWhitelist))).Methods("POST")
-	router.Handle("/api/whitelists", tenantIsolation.ValidateTenant(http.HandlerFunc(whitelistHandler.RevokeWhitelist))).Methods("DELETE")
-	router.Handle("/api/whitelists/{id}", tenantIsolation.ValidateTenant(http.HandlerFunc(whitelistHandler.RevokeWhitelist))).Methods("DELETE")
+	router.Handle("/api/v1/whitelists", jwtAuthMw.RequireAuth(http.HandlerFunc(whitelistHandler.ListWhitelists))).Methods("GET")
+	router.Handle("/api/v1/whitelists", jwtAuthMw.RequireAuth(http.HandlerFunc(whitelistHandler.CreateWhitelist))).Methods("POST")
+	router.Handle("/api/v1/whitelists/{id}", jwtAuthMw.RequireAuth(http.HandlerFunc(whitelistHandler.RevokeWhitelist))).Methods("DELETE")
 
 	// Filter routes (JWT protected, data-driven for UI)
 	log.Printf("[DEBUG] Registering filter routes...")
@@ -149,6 +163,14 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 	router.Handle("/api/v1/team/invitations/{id}",
 		jwtAuthMw.RequireAuth(middleware.RequireRole("admin", "owner")(http.HandlerFunc(teamHandler.RevokeInvitation)))).Methods("DELETE")
 
+	// IaC generation routes
+	log.Printf("[DEBUG] Registering IaC routes...")
+	iacHandler := handlers.NewIaCHandler("us-east-1")
+	router.Handle("/api/v1/iac/generate",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(iacHandler.GenerateIaC))).Methods("POST")
+	router.Handle("/api/v1/iac/bulk-generate",
+		jwtAuthMw.RequireAuth(http.HandlerFunc(iacHandler.BulkGenerate))).Methods("POST")
+
 	// Billing routes (protected - JWT required)
 	if billingHandler != nil {
 		log.Printf("[DEBUG] Registering billing routes...")
@@ -169,6 +191,10 @@ func SetupRoutes(router *mux.Router, db *sql.DB) {
 			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.DeleteBilling))).Methods("DELETE")
 		router.Handle("/api/admin/billing/{id}/mark-paid",
 			adminAuthMw.RequireAdmin(http.HandlerFunc(billingHandler.MarkAsPaid))).Methods("POST")
+
+		// Tenant-scoped billing info for frontend
+		router.Handle("/api/v1/billing/info",
+			tenantIsolation.ValidateTenant(http.HandlerFunc(billingHandler.GetBillingInfo))).Methods("GET")
 	}
 
 	log.Printf("[INFO] All routes registered successfully")

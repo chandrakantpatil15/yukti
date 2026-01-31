@@ -3,7 +3,7 @@ import { useQuery } from 'react-query';
 import { getAuthHeader } from '../../lib/auth';
 import { Button } from '../ui/button';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api/v1';
 
 interface FilterState {
   resourceTypes: string[];

@@ -39,6 +39,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
     ri_savings: 0,
   });
   const [awsConnection, setAwsConnection] = useState<AWSConnection | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [resourceData, setResourceData] = useState<ResourceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -65,17 +67,32 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
       // Try to fetch AWS connection and resources (optional)
       let awsResponse = null;
       let resourceResponse = null;
+      let scanStatus = null;
       
       try {
         awsResponse = await api.getAWSConnection();
-      } catch (e) {
-        // AWS connection not configured yet
+        setConnectionError(null); // Clear any previous errors
+      } catch (e: any) {
+        console.error('[Dashboard] AWS Connection Error:', e);
+        setConnectionError(e.message || 'Failed to connect to AWS');
       }
       
       try {
         resourceResponse = await api.getResourceStats();
       } catch (e) {
         // No resources yet
+      }
+      
+      // Check scan status for errors
+      try {
+        scanStatus = await checkScanStatus();
+        if (scanStatus?.last_error) {
+          setScanError(scanStatus.last_error);
+        } else {
+          setScanError(null);
+        }
+      } catch (e) {
+        // Scan status check failed
       }
       
       if (dashboardResponse.success) {
@@ -116,6 +133,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
     return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
+  // Auto-clear errors when connection is restored
+  useEffect(() => {
+    if (awsConnection?.verified && !connectionError && !scanError) {
+      const timer = setTimeout(() => {
+        // Clear error banners after 5 seconds if everything is working
+        setConnectionError(null);
+        setScanError(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [awsConnection?.verified, connectionError, scanError]);
+
   const handleManualRefresh = () => {
     fetchDashboardData(true);
   };
@@ -125,7 +155,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
       setRefreshing(true);
       console.log('[Dashboard] 🚀 Triggering AWS resource scan...');
       
-      const response = await api.post('/api/v1/scan', {});
+      // Backend scan endpoint is registered at /api/scan (not under /api/v1)
+      const response = await api.post('/api/scan', {});
       console.log('[Dashboard] ✅ Scan response:', response);
       
       if (response.success) {
@@ -181,7 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
 
   const checkScanStatus = async () => {
     try {
-      const response = await api.get('/api/v1/scan/status');
+      const response = await api.get('/api/scan/status');
       if (response.success) {
         console.log('[Dashboard] Scan status:', response.data);
         return response.data;
@@ -256,6 +287,46 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
             </div>
           </div>
           
+          {/* Error Notifications */}
+          {(connectionError || scanError) && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-800 mb-2">Connection Issues Detected</h3>
+                  <div className="space-y-2 text-red-700">
+                    {connectionError && (
+                      <div className="flex items-center gap-2">
+                        <Cloud className="w-4 h-4" />
+                        <span><strong>AWS Connection Error:</strong> {connectionError}</span>
+                      </div>
+                    )}
+                    {scanError && (
+                      <div className="flex items-center gap-2">
+                        <Scan className="w-4 h-4" />
+                        <span><strong>Scan Error:</strong> {scanError}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={() => window.location.href = '/settings'}
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                    >
+                      Fix Connection
+                    </button>
+                    <button
+                      onClick={() => fetchDashboardData()}
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors"
+                    >
+                      Retry Check
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* AWS Connection Status */}
           {awsConnection && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
@@ -283,7 +354,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onResourceClick }) => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={triggerScan}
-                      disabled={refreshing || !awsConnection.verified}
+                      disabled={refreshing || !awsConnection.verified || !!connectionError}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Scan className="w-4 h-4" />

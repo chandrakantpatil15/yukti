@@ -42,7 +42,7 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 	var lastVerified sql.NullTime
 	var regions []string
 	tenantIDStr := fmt.Sprintf("%d", tenantID)
-	
+
 	log.Printf("[Scanner] Querying AWS connection for tenant: %s", tenantIDStr)
 	err := s.db.QueryRowContext(ctx, `
 		SELECT account_id, role_arn, external_id, verified, last_verified_at, regions
@@ -81,7 +81,7 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 		"ap-southeast-1", "ap-southeast-2", "ap-northeast-1", "ap-northeast-2", "ap-south-1",
 		"ca-central-1", "sa-east-1",
 	}
-	
+
 	// Use configured regions if available, otherwise scan all regions
 	if len(regions) == 0 {
 		regions = allAWSRegions
@@ -100,15 +100,15 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 	var allResources []hiddencosts.Resource
 	log.Printf("[Scanner] ========== MULTI-REGION SCAN STARTING ===========")
 	log.Printf("[Scanner] Total regions to scan: %d", len(regions))
-	
+
 	for i, region := range regions {
 		log.Printf("[Scanner] ========== SCANNING REGION %d/%d: %s ===========", i+1, len(regions), region)
-		
+
 		// Assume IAM role for this region
 		log.Printf("[Scanner] Assuming IAM role for region: %s", region)
 		awsCfg, err := s.assumeRoleWithRegion(ctx, roleARN, externalID, fmt.Sprintf("yukti-scan-%d", tenantID), region)
 		if err != nil {
-			log.Printf("[Scanner] ERROR: Failed to assume role for region %s: %v", region, err)
+			log.Printf("[Scanner] ERROR: Failed to assume role for region %s: %T: %+v", region, err, err)
 			log.Printf("[Scanner] TROUBLESHOOTING: Check IAM role trust policy and permissions")
 			continue // Try next region
 		}
@@ -118,10 +118,10 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 		log.Printf("[Scanner] Fetching AWS resources from region: %s", region)
 		resources, err := s.fetchResources(ctx, awsCfg)
 		if err != nil {
-			log.Printf("[Scanner] ERROR: Failed to fetch resources from region %s: %v", region, err)
+			log.Printf("[Scanner] ERROR: Failed to fetch resources from region %s: %T: %+v", region, err, err)
 			continue // Try next region
 		}
-		
+
 		allResources = append(allResources, resources...)
 		if len(resources) > 0 {
 			log.Printf("[Scanner] ✓ Region %s scan complete: %d resources found", region, len(resources))
@@ -129,13 +129,13 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 			log.Printf("[Scanner] ○ Region %s scan complete: no resources found", region)
 		}
 	}
-	
+
 	resources := allResources
 
 	log.Printf("[Scanner] ========== MULTI-REGION SCAN SUMMARY ===========")
 	log.Printf("[Scanner] ✓ Successfully scanned %d regions", len(regions))
 	log.Printf("[Scanner] ✓ Total resources found: %d", len(resources))
-	
+
 	resourceCount := make(map[string]int)
 	for _, resource := range resources {
 		resourceCount[resource.Type]++
@@ -153,7 +153,7 @@ func (s *AWSScanner) ScanTenant(ctx context.Context, tenantID int) error {
 	log.Printf("[Scanner] Storing discovered resources in database...")
 	err = s.storeResources(ctx, tenantIDStr, accountID, resources)
 	if err != nil {
-		log.Printf("[Scanner] ERROR: Failed to store resources: %v", err)
+		log.Printf("[Scanner] ERROR: Failed to store resources: %T: %+v", err, err)
 		// Continue with detectors even if storage fails
 	} else {
 		log.Printf("[Scanner] ✓ Successfully stored %d resources", len(resources))
@@ -187,7 +187,7 @@ func (s *AWSScanner) assumeRoleWithRegion(ctx context.Context, roleARN, external
 		o.RoleSessionName = sessionName
 	})
 
-	assumedCfg, err := config.LoadDefaultConfig(ctx, 
+	assumedCfg, err := config.LoadDefaultConfig(ctx,
 		config.WithCredentialsProvider(creds),
 		config.WithRegion(region),
 	)
@@ -207,8 +207,8 @@ func (s *AWSScanner) storeResources(ctx context.Context, tenantID, accountID str
 		VALUES ($1, $2, $3, $4, $5, NOW())
 		ON CONFLICT (account_id, tenant_id) DO UPDATE SET account_name = EXCLUDED.account_name
 		RETURNING id
-	`, accountID, tenantID, fmt.Sprintf("AWS Account %s", accountID), "arn:aws:iam::" + accountID + ":role/YuktiReadOnlyRole", "yukti-" + tenantID).Scan(&awsAccountDBID)
-	
+	`, accountID, tenantID, fmt.Sprintf("AWS Account %s", accountID), "arn:aws:iam::"+accountID+":role/YuktiReadOnlyRole", "yukti-"+tenantID).Scan(&awsAccountDBID)
+
 	if err != nil {
 		return fmt.Errorf("failed to create/get AWS account record: %w", err)
 	}
@@ -216,7 +216,7 @@ func (s *AWSScanner) storeResources(ctx context.Context, tenantID, accountID str
 	// Clear existing resources for this tenant (fresh scan)
 	_, err = s.db.ExecContext(ctx, `DELETE FROM yt_tenant_resources WHERE tenant_id = $1`, tenantID)
 	if err != nil {
-		log.Printf("[Scanner] Warning: Failed to clear existing resources: %v", err)
+		log.Printf("[Scanner] Warning: Failed to clear existing resources: %T: %+v", err, err)
 	}
 
 	// Store each resource
@@ -270,7 +270,7 @@ func (s *AWSScanner) storeResources(ctx context.Context, tenantID, accountID str
 				tagsJSON, _ = json.Marshal(tagsMap)
 			}
 		}
-		
+
 		// Serialize metadata as JSON
 		metadataJSON, _ := json.Marshal(resource.Metadata)
 
@@ -296,12 +296,12 @@ func (s *AWSScanner) storeResources(ctx context.Context, tenantID, accountID str
 			(tenant_id, aws_account_id, resource_id, resource_type, region, instance_type, state, tags, metadata, monthly_cost, last_synced)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
 		`, tenantID, awsAccountDBID, resourceID, resource.Type, region, instanceType, state, tagsJSON, metadataJSON, monthlyCost)
-		
+
 		if err != nil {
-			log.Printf("[Scanner] Warning: Failed to store resource %s: %v", resourceID, err)
+			log.Printf("[Scanner] Warning: Failed to store resource %s: %T: %+v", resourceID, err, err)
 			continue
 		}
-		
+
 		log.Printf("[Scanner] ✅ Stored resource: %s (%s) in %s", resourceID, resource.Type, region)
 	}
 
@@ -315,21 +315,21 @@ func (s *AWSScanner) fetchResources(ctx context.Context, cfg awssdk.Config) ([]h
 
 	ec2Resources, err := s.fetchEC2Instances(ctx, cfg)
 	if err != nil {
-		log.Printf("[Scanner] Warning: Failed to fetch EC2: %v", err)
+		log.Printf("[Scanner] Warning: Failed to fetch EC2: %T: %+v", err, err)
 	} else {
 		resources = append(resources, ec2Resources...)
 	}
 
 	rdsResources, err := s.fetchRDSInstances(ctx, cfg)
 	if err != nil {
-		log.Printf("[Scanner] Warning: Failed to fetch RDS: %v", err)
+		log.Printf("[Scanner] Warning: Failed to fetch RDS: %T: %+v", err, err)
 	} else {
 		resources = append(resources, rdsResources...)
 	}
 
 	s3Resources, err := s.fetchS3Buckets(ctx, cfg)
 	if err != nil {
-		log.Printf("[Scanner] Warning: Failed to fetch S3: %v", err)
+		log.Printf("[Scanner] Warning: Failed to fetch S3: %T: %+v", err, err)
 	} else {
 		resources = append(resources, s3Resources...)
 	}
@@ -342,7 +342,7 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 	client := ec2.NewFromConfig(cfg)
 	result, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{})
 	if err != nil {
-		log.Printf("[Scanner] ERROR: EC2 DescribeInstances failed: %v", err)
+		log.Printf("[Scanner] ERROR: EC2 DescribeInstances failed: %T: %+v", err, err)
 		return nil, err
 	}
 
@@ -356,7 +356,7 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 				"state":         string(instance.State.Name),
 				"region":        cfg.Region,
 			}
-			
+
 			if instance.Placement != nil {
 				if instance.Placement.AvailabilityZone != nil {
 					metadata["availability_zone"] = *instance.Placement.AvailabilityZone
@@ -428,7 +428,7 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 			if len(instance.BlockDeviceMappings) > 0 {
 				metadata["block_device_count"] = len(instance.BlockDeviceMappings)
 			}
-			
+
 			// Extract ALL tags
 			tags := make(map[string]string)
 			for _, tag := range instance.Tags {
@@ -437,7 +437,7 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 				}
 			}
 			metadata["tags"] = tags
-			
+
 			// Fetch CloudWatch metrics for running instances (optional - don't fail scan if metrics unavailable)
 			if string(instance.State.Name) == "running" {
 				func() {
@@ -446,7 +446,7 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 							log.Printf("[Scanner] Warning: CloudWatch metrics fetch failed for %s: %v", *instance.InstanceId, r)
 						}
 					}()
-					
+
 					cloudwatchClient := aws.NewCloudWatchClient(cfg)
 					if cloudwatchClient != nil {
 						metrics, err := cloudwatchClient.GetEC2Metrics(ctx, *instance.InstanceId)
@@ -468,12 +468,12 @@ func (s *AWSScanner) fetchEC2Instances(ctx context.Context, cfg awssdk.Config) (
 					}
 				}()
 			}
-			
+
 			log.Printf("[Scanner] EC2: %s (%s) - %d tags", *instance.InstanceId, string(instance.InstanceType), len(tags))
-			
+
 			resources = append(resources, hiddencosts.Resource{
-				ARN:  fmt.Sprintf("arn:aws:ec2:%s::instance/%s", cfg.Region, *instance.InstanceId),
-				Type: "ec2",
+				ARN:      fmt.Sprintf("arn:aws:ec2:%s::instance/%s", cfg.Region, *instance.InstanceId),
+				Type:     "ec2",
 				Metadata: metadata,
 			})
 		}
@@ -488,7 +488,7 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 	client := rds.NewFromConfig(cfg)
 	result, err := client.DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{})
 	if err != nil {
-		log.Printf("[Scanner] ERROR: RDS DescribeDBInstances failed: %v", err)
+		log.Printf("[Scanner] ERROR: RDS DescribeDBInstances failed: %T: %+v", err, err)
 		return nil, err
 	}
 
@@ -499,7 +499,7 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 			"engine":         *instance.Engine,
 			"region":         cfg.Region,
 		}
-		
+
 		if instance.DBInstanceClass != nil {
 			metadata["instance_class"] = *instance.DBInstanceClass
 		}
@@ -556,7 +556,7 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 		if len(instance.DBSubnetGroup.Subnets) > 0 {
 			metadata["subnet_count"] = len(instance.DBSubnetGroup.Subnets)
 		}
-		
+
 		tags := make(map[string]string)
 		for _, tag := range instance.TagList {
 			if tag.Key != nil && tag.Value != nil {
@@ -564,7 +564,7 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 			}
 		}
 		metadata["tags"] = tags
-		
+
 		// Fetch CloudWatch metrics for available instances (optional - don't fail scan if metrics unavailable)
 		if instance.DBInstanceStatus != nil && *instance.DBInstanceStatus == "available" {
 			func() {
@@ -573,7 +573,7 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 						log.Printf("[Scanner] Warning: CloudWatch metrics fetch failed for %s: %v", *instance.DBInstanceIdentifier, r)
 					}
 				}()
-				
+
 				cloudwatchClient := aws.NewCloudWatchClient(cfg)
 				if cloudwatchClient != nil {
 					metrics, err := cloudwatchClient.GetRDSMetrics(ctx, *instance.DBInstanceIdentifier)
@@ -595,12 +595,12 @@ func (s *AWSScanner) fetchRDSInstances(ctx context.Context, cfg awssdk.Config) (
 				}
 			}()
 		}
-		
+
 		log.Printf("[Scanner] RDS: %s (%s) - %d tags", *instance.DBInstanceIdentifier, *instance.Engine, len(tags))
-		
+
 		resources = append(resources, hiddencosts.Resource{
-			ARN:  *instance.DBInstanceArn,
-			Type: "rds",
+			ARN:      *instance.DBInstanceArn,
+			Type:     "rds",
 			Metadata: metadata,
 		})
 	}
@@ -614,7 +614,7 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 	client := s3.NewFromConfig(cfg)
 	result, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
-		log.Printf("[Scanner] ERROR: S3 ListBuckets failed: %v", err)
+		log.Printf("[Scanner] ERROR: S3 ListBuckets failed: %T: %+v", err, err)
 		return nil, err
 	}
 
@@ -624,23 +624,23 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 			"bucket_name": *bucket.Name,
 			"region":      cfg.Region,
 		}
-		
+
 		if bucket.CreationDate != nil {
 			metadata["creation_date"] = bucket.CreationDate.Format(time.RFC3339)
 		}
-		
+
 		// Get bucket location
 		location, err := client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{Bucket: bucket.Name})
 		if err == nil && location.LocationConstraint != "" {
 			metadata["bucket_region"] = string(location.LocationConstraint)
 		}
-		
+
 		// Get bucket versioning
 		versioning, err := client.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{Bucket: bucket.Name})
 		if err == nil {
 			metadata["versioning"] = string(versioning.Status)
 		}
-		
+
 		// Get bucket encryption
 		encryption, err := client.GetBucketEncryption(ctx, &s3.GetBucketEncryptionInput{Bucket: bucket.Name})
 		if err == nil && len(encryption.ServerSideEncryptionConfiguration.Rules) > 0 {
@@ -648,7 +648,7 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 		} else {
 			metadata["encryption_enabled"] = false
 		}
-		
+
 		// Get bucket tags
 		tagsResult, err := client.GetBucketTagging(ctx, &s3.GetBucketTaggingInput{Bucket: bucket.Name})
 		tags := make(map[string]string)
@@ -660,7 +660,7 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 			}
 		}
 		metadata["tags"] = tags
-		
+
 		// Fetch CloudWatch metrics for S3 buckets (optional - don't fail scan if metrics unavailable)
 		func() {
 			defer func() {
@@ -668,7 +668,7 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 					log.Printf("[Scanner] Warning: CloudWatch metrics fetch failed for %s: %v", *bucket.Name, r)
 				}
 			}()
-			
+
 			cloudwatchClient := aws.NewCloudWatchClient(cfg)
 			if cloudwatchClient != nil {
 				metrics, err := cloudwatchClient.GetS3Metrics(ctx, *bucket.Name)
@@ -683,12 +683,12 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 				}
 			}
 		}()
-		
+
 		log.Printf("[Scanner] S3: %s - %d tags", *bucket.Name, len(tags))
-		
+
 		resources = append(resources, hiddencosts.Resource{
-			ARN:  fmt.Sprintf("arn:aws:s3:::%s", *bucket.Name),
-			Type: "s3",
+			ARN:      fmt.Sprintf("arn:aws:s3:::%s", *bucket.Name),
+			Type:     "s3",
 			Metadata: metadata,
 		})
 	}
@@ -696,5 +696,3 @@ func (s *AWSScanner) fetchS3Buckets(ctx context.Context, cfg awssdk.Config) ([]h
 	log.Printf("[Scanner] ✓ Found %d S3 buckets", len(resources))
 	return resources, nil
 }
-
-

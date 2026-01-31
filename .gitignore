@@ -61,3 +61,6 @@ vendor/
 .api.pid
 .ui.pid
 .health.pid
+
+# Local AWS credentials file for dev (do not commit)
+.env.aws

@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { setToken, getCurrentUser } from '../../lib/auth';
+import { setToken } from '../../lib/auth';
+import api from '../../services/api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 
@@ -14,7 +15,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api/v1';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -34,28 +35,27 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed');
-      }
-
-      if (result.success && result.token) {
-        // Store token
+      const result = await api.post('/auth/login', data);
+      if (result && result.token) {
         setToken(result.token);
 
-        // Redirect to dashboard
-        navigate('/dashboard');
+        // Check AWS onboarding / connection status and redirect accordingly
+        let awsResp = null;
+        try {
+          awsResp = await api.getAWSConnection();
+        } catch (e) {
+          // treat as not connected if call fails
+          awsResp = null;
+        }
+
+        const isConnected = awsResp && awsResp.success && awsResp.data && awsResp.data.verified;
+        if (isConnected) {
+          navigate('/dashboard');
+        } else {
+          navigate('/onboarding');
+        }
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(result.error || 'Login failed');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

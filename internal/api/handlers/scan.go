@@ -16,17 +16,19 @@ import (
 )
 
 type ScanHandler struct {
-	db *sql.DB
-	lastScanTime map[int]time.Time
+	db              *sql.DB
+	lastScanTime    map[int]time.Time
 	scanningTenants map[int]bool
-	mu sync.RWMutex
+	lastErrors      map[int]string
+	mu              sync.RWMutex
 }
 
 func NewScanHandler(db *sql.DB) *ScanHandler {
 	return &ScanHandler{
-		db: db,
-		lastScanTime: make(map[int]time.Time),
+		db:              db,
+		lastScanTime:    make(map[int]time.Time),
 		scanningTenants: make(map[int]bool),
+		lastErrors:      make(map[int]string),
 	}
 }
 
@@ -75,7 +77,7 @@ func (h *ScanHandler) TriggerScan(w http.ResponseWriter, r *http.Request) {
 	var verified bool
 	var lastVerified sql.NullTime
 	tenantIDStr := strconv.Itoa(tenantID)
-	
+
 	log.Printf("[ScanAPI] Checking AWS connection for tenant: %s", tenantIDStr)
 	err := h.db.QueryRow(`
 		SELECT account_id, role_arn, external_id, verified, last_verified_at
@@ -126,8 +128,8 @@ func (h *ScanHandler) TriggerScan(w http.ResponseWriter, r *http.Request) {
 			"action":  "Verify your IAM role trust policy includes the correct external ID",
 			"code":    "AWS_NOT_VERIFIED",
 			"details": map[string]string{
-				"account_id": accountID,
-				"role_arn":   roleARN,
+				"account_id":  accountID,
+				"role_arn":    roleARN,
 				"external_id": externalID,
 			},
 		})
@@ -150,9 +152,19 @@ func (h *ScanHandler) TriggerScan(w http.ResponseWriter, r *http.Request) {
 		if err := awsScanner.ScanTenant(context.Background(), tenantID); err != nil {
 			log.Printf("[ScanAPI] ERROR: AWS scan failed for tenant %d: %v", tenantID, err)
 			log.Printf("[ScanAPI] TROUBLESHOOTING: Check IAM permissions and AWS service availability")
+
+			// Store error for dashboard display
+			h.mu.Lock()
+			h.lastErrors[tenantID] = err.Error()
+			h.mu.Unlock()
 		} else {
 			log.Printf("[ScanAPI] ✓ AWS scan completed successfully for tenant %d", tenantID)
 			log.Printf("[ScanAPI] Results should now be visible in dashboard")
+
+			// Clear any previous errors
+			h.mu.Lock()
+			delete(h.lastErrors, tenantID)
+			h.mu.Unlock()
 		}
 	}()
 
@@ -163,13 +175,13 @@ func (h *ScanHandler) TriggerScan(w http.ResponseWriter, r *http.Request) {
 		"status":  "running",
 		"account": accountID,
 		"details": map[string]interface{}{
-			"scan_id":     fmt.Sprintf("scan-%d-%d", tenantID, time.Now().Unix()),
-			"tenant_id":   tenantID,
-			"started_at":  time.Now().Format(time.RFC3339),
+			"scan_id":           fmt.Sprintf("scan-%d-%d", tenantID, time.Now().Unix()),
+			"tenant_id":         tenantID,
+			"started_at":        time.Now().Format(time.RFC3339),
 			"expected_duration": "30-60 seconds",
 		},
 	}
-	
+
 	log.Printf("[ScanAPI] ✓ Scan request accepted - returning success response")
 	json.NewEncoder(w).Encode(response)
 }
@@ -193,7 +205,7 @@ func (h *ScanHandler) GetScanStatus(w http.ResponseWriter, r *http.Request) {
 	var verified bool
 	var lastVerified sql.NullTime
 	tenantIDStr := strconv.Itoa(tenantID)
-	
+
 	err := h.db.QueryRow(`
 		SELECT account_id, role_arn, verified, last_verified_at
 		FROM yt_aws_connections
@@ -227,6 +239,12 @@ func (h *ScanHandler) GetScanStatus(w http.ResponseWriter, r *http.Request) {
 		WHERE tenant_id = $1
 	`, tenantIDStr).Scan(&totalFindings)
 
+	// Get last error if any
+	h.mu.RLock()
+	lastError := h.lastErrors[tenantID]
+	isScanning := h.scanningTenants[tenantID]
+	h.mu.RUnlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
@@ -239,11 +257,13 @@ func (h *ScanHandler) GetScanStatus(w http.ResponseWriter, r *http.Request) {
 			"last_verified":     lastVerified,
 			"recent_findings":   findingsCount,
 			"total_findings":    totalFindings,
+			"is_scanning":       isScanning,
+			"last_error":        lastError,
 			"timestamp":         time.Now().Format(time.RFC3339),
 			"troubleshooting": map[string]string{
-				"logs_command":    "docker-compose logs -f backend | grep Scanner",
-				"tenant_logs":     fmt.Sprintf("docker-compose logs backend | grep 'tenant.*%d'", tenantID),
-				"guide_url":       "/docs/troubleshooting",
+				"logs_command": "docker-compose logs -f backend | grep Scanner",
+				"tenant_logs":  fmt.Sprintf("docker-compose logs backend | grep 'tenant.*%d'", tenantID),
+				"guide_url":    "/docs/troubleshooting",
 			},
 		},
 	})

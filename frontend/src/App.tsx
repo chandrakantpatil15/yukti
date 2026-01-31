@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
 import Dashboard from './pages/Dashboard';
@@ -12,7 +12,8 @@ import AdminBilling from './pages/Admin/AdminBilling';
 import TestAdmin from './pages/TestAdmin';
 import AuditLogs from './pages/AuditLogs';
 import Login from './pages/Auth/Login';
-import Signup from './pages/Auth/Signup';
+// Use the complete signup flow (includes verification -> onboarding)
+import Signup from './pages/Signup';
 import Billing from './pages/Billing';
 import BillingUpgrade from './pages/BillingUpgrade';
 import BillingSuccess from './pages/BillingSuccess';
@@ -218,8 +219,11 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const getPageFromPath = () => {
-    const path = window.location.pathname;
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getPageFromPath = (pathName: string) => {
+    const path = pathName;
     if (path.includes('/audit-logs')) return 'audit-logs';
     if (path.includes('/admin')) return 'admin';
     if (path.includes('/onboarding')) return 'onboarding';
@@ -233,15 +237,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     return 'dashboard';
   };
 
-  const [currentPage, setCurrentPage] = useState(getPageFromPath());
+  const [currentPage, setCurrentPage] = useState(getPageFromPath(location.pathname));
 
   React.useEffect(() => {
-    const handlePopState = () => {
-      setCurrentPage(getPageFromPath());
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+    setCurrentPage(getPageFromPath(location.pathname));
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900">
@@ -250,7 +250,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           currentPath={currentPage} 
           onNavigate={(page) => {
             setCurrentPage(page);
-            window.history.pushState({}, '', `/${page === 'dashboard' ? '' : page}`);
+            navigate(`/${page === 'dashboard' ? '' : page}`);
           }} 
         />
         <div className="absolute right-4 top-4">

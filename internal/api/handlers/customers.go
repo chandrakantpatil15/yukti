@@ -36,7 +36,7 @@ func (h *CustomerHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	var findingsCount int
 	log.Printf("[DEBUG] Fetching findings for tenant: %d", tenantID)
 	// Convert tenant_id to string for yt_hidden_cost_findings.tenant_id (VARCHAR)
-	tenantIDStr := "tenant-" + strconv.Itoa(tenantID)
+	tenantIDStr := strconv.Itoa(tenantID)
 	err := h.db.QueryRow(`
 		SELECT COALESCE(SUM(estimated_savings), 0), COUNT(*) 
 		FROM yt_hidden_cost_findings 
@@ -54,7 +54,7 @@ func (h *CustomerHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		FROM yt_budgets 
 		WHERE tenant_id = $1 AND status = 'active' 
 		LIMIT 1
-	`, tenantIDStr).Scan(&budgetAmount, &currentSpend)
+	`, tenantID).Scan(&budgetAmount, &currentSpend)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("[ERROR] Failed to get budget for tenant %s: %v", tenantID, err)
 	}
@@ -66,7 +66,7 @@ func (h *CustomerHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		SELECT COALESCE(SUM(monthly_savings), 0) 
 		FROM yt_ri_recommendations 
 		WHERE tenant_id = $1
-	`, tenantIDStr).Scan(&riSavings)
+	`, tenantID).Scan(&riSavings)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("[ERROR] Failed to get RI recommendations for tenant %s: %v", tenantID, err)
 	}
@@ -140,7 +140,7 @@ func (h *CustomerHandler) GetFindings(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[INFO] GetFindings called for tenant: %d, category: %s, severity: %s from IP: %s", tenantID, category, severity, r.RemoteAddr)
 
 	// Convert tenant_id to string for yt_hidden_cost_findings.tenant_id (VARCHAR)
-	tenantIDStr := "tenant-" + strconv.Itoa(tenantID)
+	tenantIDStr := strconv.Itoa(tenantID)
 
 	query := `
 		SELECT id, detector_name, category, severity, title, description, 

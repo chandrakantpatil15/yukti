@@ -63,16 +63,7 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     roles: ['owner', 'admin'],
   },
-  {
-    path: 'profile',
-    label: 'Profile',
-    icon: <User className="w-5 h-5" />,
-  },
-  {
-    path: 'onboarding',
-    label: 'Settings',
-    icon: <Settings className="w-5 h-5" />,
-  },
+  // Profile and Settings intentionally omitted from main nav; available in user menu
   {
     path: 'audit-logs',
     label: 'Audit Logs',

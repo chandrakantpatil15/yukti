@@ -1,10 +1,12 @@
 import { getAuthHeader, getCurrentUser } from '../lib/auth';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api/v1';
 
 export class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Support backend endpoints that live under /api/* (not /api/v1)
+    const API_HOST = API_BASE_URL.replace(/\/api\/v1\/?$/i, '');
+    const url = endpoint.startsWith('/api/') ? `${API_HOST}${endpoint}` : `${API_BASE_URL}${endpoint}`;
     const authHeader = getAuthHeader();
     const user = getCurrentUser();
 
@@ -35,7 +37,8 @@ export class ApiService {
     type?: string;
     tags?: Record<string, string>;
   }) {
-    return this.request('/resources', {
+    // Use the public-compatible path so dev clients can pass X-Tenant-ID when JWT is not available
+    return this.request('/api/resources', {
       method: 'GET',
       headers: { 'X-Include-Filters': JSON.stringify(filters) },
     });
@@ -179,7 +182,14 @@ export class ApiService {
 
   // Enhanced Dashboard APIs
   async getDashboardMetrics() {
-    return this.request('/dashboard/metrics');
+    // The backend exposes the customer dashboard at /api/customers/dashboard
+    // Use the /api/ prefix so the client routes to the API host (not /api/v1)
+    return this.request('/api/customers/dashboard');
+  }
+
+  // Backwards-compatible wrapper used by some pages
+  async getDashboard() {
+    return this.getDashboardMetrics();
   }
 
   async getCostBreakdown() {
@@ -188,6 +198,28 @@ export class ApiService {
 
   async getUtilizationSummary() {
     return this.request('/dashboard/utilization-summary');
+  }
+
+  // Onboarding / AWS connection
+  async getAWSConnection() {
+    // Include tenant_id when available so backend returns the correct tenant's connection
+    const user = getCurrentUser();
+    const tenantQuery = user && user.tenant_id ? `?tenant_id=${user.tenant_id}` : '';
+    return this.get(`/api/onboarding/aws${tenantQuery}`);
+  }
+
+  async connectAWS(tenantId: string, accountId: string, roleArn: string, externalId?: string) {
+    return this.post('/api/onboarding/aws', {
+      tenant_id: tenantId,
+      account_id: accountId,
+      role_arn: roleArn,
+      external_id: externalId || '',
+    });
+  }
+
+  // Resource statistics
+  async getResourceStats() {
+    return this.get('/resources/stats');
   }
 
   // Auth endpoints

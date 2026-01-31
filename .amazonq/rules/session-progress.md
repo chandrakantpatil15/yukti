@@ -93,6 +93,35 @@
   - Automatic logout on expired/invalid tokens
 - **Documentation**: Created UI_SECURITY_FIXES.md
 
+### Phase 26: Resource Management & UI Modernization
+- **Resource Details Fix**: Fixed missing resource details functionality
+  - Added missing API route `/api/v1/resources/{resourceId}` in routes.go
+  - Fixed resource ID extraction using mux.Vars in handlers/resources.go
+  - Added structured data organization (status_info, network_info, config_info, storage_info)
+- **UI Modernization**: Complete redesign of Resources and Hidden Costs pages
+  - Modern dark/blue theme with professional cards and tables
+  - Dynamic filters based on actual resource data with accurate counts
+  - Summary cards with charts and comprehensive data display
+  - Clickable table rows with proper sidebar interactions
+- **IaC Functionality**: Infrastructure as Code generation implementation
+  - Added IaC generation routes and API integration
+  - Terraform/CloudFormation support with copy/download features
+  - Enhanced IaCGeneratorTab with format selection and API calls
+- **Table Interactions**: Enhanced user experience
+  - Made resource table rows clickable for details
+  - Added backdrop, escape key, and click-outside-to-close functionality
+  - Implemented CSV/JSON export with complete resource details
+- **Whitelist System**: Complete whitelist functionality for cost optimization
+  - Added Shield icon button to Resources table for individual whitelisting
+  - Created handleWhitelistResource function with /api/whitelists endpoint
+  - Modernized Whitelists page with resource icons and summary cards
+  - Enhanced whitelist modal with resource type selection and expiration options
+  - Integrated whitelist to exclude resources from Hidden Costs findings
+- **Deployment**: Frontend rebuilt with all modernization features
+  - All services (backend, frontend, redis) running successfully
+  - Whitelist system fully operational with proper tracking
+  - Modern UI with professional data-rich interfaces active
+
 ### Phase 16: Onboarding Improvements
 - **Email Verification**: Already implemented in signup flow
   - OTP sent to user email (displayed in dev mode)
@@ -570,6 +599,16 @@
 - **Customer Test Account**: 424851482219
 - **Customer IAM Role**: YuktiFinOpsRole
 - **External ID Pattern**: yukti-{tenant_id}-{random_12_chars}
+
+### Key Files Modified (Session 26)
+- `internal/api/routes/routes.go` - Added missing resource details endpoint and IaC generation routes
+- `internal/api/handlers/resources.go` - Fixed resource ID extraction, added structured data organization
+- `frontend/src/pages/Resources.tsx` - Complete redesign with modern UI, dynamic filters, export functionality
+- `frontend/src/pages/HiddenCosts.tsx` - Modernized with professional table, expandable rows, IaC modal
+- `frontend/src/components/ResourceDetails/ResourcePanel.tsx` - Added backdrop, escape key handling
+- `frontend/src/components/ResourceDetails/IaCGeneratorTab.tsx` - Fully functional IaC generator
+- `frontend/src/components/ResourceDetails/ResourceInfoTab.tsx` - Enhanced with structured data display
+- `frontend/src/pages/Whitelists.tsx` - Modernized design with resource icons and improved management
 
 ### Key Files Modified (Session 24-25)
 - `migrations/008_multi_user_rbac.sql` - yt_tenant_users, yt_user_invitations, views (NEW)

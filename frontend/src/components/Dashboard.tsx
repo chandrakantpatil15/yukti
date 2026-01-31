@@ -2,6 +2,7 @@ import React from 'react';
 import { MetricCard } from './MetricCard';
 import { ResourceInventory } from './ResourceInventory';
 import { ExecutiveSummary } from './ExecutiveSummary';
+import SyncStatusWidget from './SyncStatusWidget';
 import { useCostSummary, useRecommendations } from '../hooks/useCostData';
 
 export const Dashboard: React.FC = () => {
@@ -25,7 +26,17 @@ export const Dashboard: React.FC = () => {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-gray-900">AWS Cost Optimization</h1>
-          <p className="text-gray-600 mt-2">Monitor spending and identify savings opportunities</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-gray-600">Monitor spending and identify savings opportunities</p>
+            <div className="ml-4">
+              {/* Sync status widget */}
+              {/* Lazy load to avoid heavy re-renders */}
+              <React.Suspense fallback={<div className="text-sm text-gray-500">Loading...</div>}>
+                {/* @ts-ignore: dynamic import safe */}
+                <SyncStatusWidget />
+              </React.Suspense>
+            </div>
+          </div>
         </div>
       </header>
 

@@ -59,9 +59,11 @@ func main() {
 	log.Printf("[INFO] Initializing API server...")
 	server := api.NewServer(db)
 
-	port := os.Getenv("BACKEND_PORT")
+	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("[FATAL] BACKEND_PORT environment variable not set. Check .env.ports file.")
+		// Default to 8080 for local development to avoid hard failure
+		port = "8080"
+		log.Printf("[WARN] PORT not set, defaulting to %s", port)
 	}
 
 	log.Printf("[INFO] ========================================")

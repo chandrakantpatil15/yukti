@@ -91,32 +91,39 @@ const ResourceUtilization: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900">Idle Resources (CPU &lt; 10% for 7 days)</h2>
           </div>
           <div className="overflow-x-auto mb-6">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Resource ID</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg CPU</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Monthly Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {idleResources.map((resource, idx) => (
-                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-mono text-sm text-gray-900">{resource.resource_id}</td>
-                    <td className="py-3 px-4 text-gray-600">{resource.resource_type}</td>
-                    <td className="text-right py-3 px-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {resource.avg_cpu.toFixed(1)}%
-                      </span>
-                    </td>
-                    <td className="text-right py-3 px-4 font-semibold text-gray-900">
-                      ${resource.monthly_cost}
-                    </td>
+            {idleResources.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                No resources found in this account. Run a scan or verify your AWS connection.
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Resource ID</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Type</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Avg CPU</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Monthly Cost</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {idleResources.map((resource, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 font-mono text-sm text-gray-900">{resource.resource_id}</td>
+                      <td className="py-3 px-4 text-gray-600">{resource.resource_type}</td>
+                      <td className="text-right py-3 px-4">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          {resource.avg_cpu.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="text-right py-3 px-4 font-semibold text-gray-900">
+                        ${resource.monthly_cost}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
             <div className="flex items-center gap-2">

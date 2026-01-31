@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Resource } from '../types';
 
-const API_BASE = 'http://localhost:8081/api/cost';
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:8080/api/cost';
 
 export const useLargeInventory = (count: number = 10000) => {
   return useQuery({
